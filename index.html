@@ -31,6 +31,7 @@
     .question-text{font-size:1.25em;color:#333;line-height:1.6;margin-bottom:20px}
     .math-display{font-size:1.35em;margin:15px 0;text-align:center}
     .answer-input{padding:12px 20px;font-size:18px;border:2px solid #ddd;border-radius:10px;width:300px;max-width:100%}
+    .multi-inputs .answer-input{width:100%}
     .question-actions{display:flex;gap:15px;margin-top:30px}
     .btn-validate{background:#28a745}
     .btn-skip{background:#ffc107}
@@ -93,16 +94,13 @@
 </div>
 
 <script>
-// ============== Sécurité de chargement KaTeX ==============
 function whenKatexReady(cb){
   if (window.katex && typeof window.katex.render === 'function') { cb(); return; }
   window.addEventListener('load', function(){
     if (window.katex && typeof window.katex.render === 'function') cb();
-    else console.error('KaTeX non chargé.');
   });
 }
 
-// ============== Helpers généraux ==============
 function toFR(n, d = null){ if(typeof n === 'number') n = d!==null ? n.toFixed(d) : n.toString(); return n.replace('.', ','); }
 function renderMath(x){ const span=document.createElement('span'); katex.render(x, span, {throwOnError:false}); return span.outerHTML; }
 function renderMathBlock(x){ const div=document.createElement('div'); katex.render(x, div, {throwOnError:false, displayMode:true}); return div.outerHTML; }
@@ -113,39 +111,13 @@ function normNumLike(s){ return s.toLowerCase().replace(',', '.').replace(/\s/g,
 
 let current=0, questions=[], answers=[], timer=null, elapsed=0, startedAt=0, times=[], examTimer=null, examLeft=540, hasAnswered=false;
 
-// ============== Générateur basé sur le sujet SIXIÈME (mars 2020) ==============
 class Gen {
   rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a}
   rndf(a,b,d=2){const x=Math.random()*(b-a)+a;const k=10**d;return Math.round(x*k)/k}
 
   types(){
     return [
-      'mult_basic',
-      'factor_completion',
-      'half_integer',
-      'share_quotient_remainder',
-      'add_two_integers',
-      'days_to_hours',
-      'sum_euros',
-      'mental_3x25',
-      'proportion_weight',
-      'temp_increase',
-      'compare_simple_fractions',
-      'subtraction_thousands',
-      'times_tens',
-      'three_quarters_kg',
-      'time_sequence_plus2',
-      'twice_more_than',
-      'between_3_9_and_4',
-      'perimeter_square_dm',
-      'nearest_estimation',
-      'bound_fraction_consecutive',
-      'unit_price_consistent',
-      'two_representations_0_25',
-      'times_ten',
-      'percent_of_amount',
-      'deciliter_to_liter',
-      'product_cartesian'
+      'mult_basic','factor_completion','half_integer','share_quotient_remainder','add_two_integers','days_to_hours','sum_euros','mental_3x25','proportion_weight','temp_increase','compare_simple_fractions','subtraction_thousands','times_tens','three_quarters_kg','time_sequence_plus2','twice_more_than','between_3_9_and_4','perimeter_square_dm','nearest_estimation','bound_fraction_consecutive','unit_price_consistent','two_representations_0_25','times_ten','percent_of_amount','deciliter_to_liter','product_cartesian'
     ]
   }
 
@@ -187,11 +159,12 @@ class Gen {
     return {question:`Calcule ${a} × ${b}`, answer:r.toString(), type:'numerical', explanationSteps:[`${a} \\times ${b} = ${r}`]};
   }
 
+  // multi: deux facteurs
   factor_completion(){
     const n=this.rnd(12,30);
     const divs=[];for(let d=2;d<n;d++){if(n%d===0)divs.push(d)}
     const d=divs.length? divs[this.rnd(0,divs.length-1)]:1; const q=n/d;
-    return {question:`Complète : ${n} = ... × ...`, answer:`${d}×${q}`, type:'pattern', explanationSteps:[`${n} = ${d} \\times ${q}`]};
+    return {question:`Complète : ${n} = … × …`, type:'multi', fields:[{label:'Facteur 1',kind:'number'},{label:'Facteur 2',kind:'number'}], answers:[d.toString(),q.toString()], allowAnyOrder:true, explanationSteps:[`${n} = ${d} \\times ${q}`]};
   }
 
   half_integer(){
@@ -199,10 +172,11 @@ class Gen {
     return {question:`La moitié de ${n}`, answer:(n/2).toString(), type:'numerical', explanationSteps:[`\\dfrac{${n}}{2} = ${n/2}`]};
   }
 
+  // multi: quotient + reste
   share_qr(){
     const people=this.rnd(6,12), coins=this.rnd(30,90);
     const q=Math.floor(coins/people), r=coins%people;
-    return {question:`${people} pirates se partagent équitablement ${coins} pièces d'or. Au maximum chacun reçoit ... pièces et il reste ... pièces. (réponds « q, r »)`, answer:`${q},${r}`, type:'pair', explanationSteps:[`${coins} = ${people} \\times ${q} + ${r}`]};
+    return {question:`${people} pirates se partagent ${coins} pièces. Complète : chacun reçoit … pièces ; il reste … pièces.`, type:'multi', fields:[{label:'Quotient',kind:'number'},{label:'Reste',kind:'number'}], answers:[q.toString(),r.toString()], explanationSteps:[`${coins} = ${people} \\times ${q} + ${r}`]};
   }
 
   add_two(){
@@ -212,12 +186,12 @@ class Gen {
 
   days_to_hours(){
     const d=this.rnd(1,3);
-    return {question:`Complète : ${d} jour${d>1?'s':''} = ... heures`, answer:(d*24).toString(), type:'numerical', explanationSteps:[`${d} \\times 24 = ${d*24}`]};
+    return {question:`Complète : ${d} jour${d>1?'s':''} = … heures`, answer:(d*24).toString(), type:'numerical', explanationSteps:[`${d} \\times 24 = ${d*24}`]};
   }
 
   sum_euros(){
     const a=10*this.rnd(1,9)+this.rnd(0,9);const b=10*this.rnd(1,9)+this.rnd(0,9);
-    return {question:`J'ai reçu ${a} € puis ${b} €. En tout j'ai reçu ... €`, answer:(a+b).toString(), type:'numerical'};
+    return {question:`J'ai reçu ${a} € puis ${b} €. En tout j'ai reçu … €`, answer:(a+b).toString(), type:'numerical'};
   }
 
   mental_3x25(){
@@ -226,13 +200,19 @@ class Gen {
   }
 
   prop_weight(){
-    const a=18, aw=100, b=9, bw=Math.round(aw*(b/a));
-    return {question:`${a} billes pèsent ${aw} g. ${b} billes pèsent ... g`, answer:bw.toString(), type:'numerical', explanationSteps:[`${aw}\\,/\\,${a} = ${toFR(aw/a)}~g/\\text{bille}`,`\\Rightarrow ${b}~\\text{billes} = ${b}\\times${toFR(aw/a)} = ${toFR(bw)}~g`]};
+    const a=18, aw=100, b=9, bw=(aw*b)/a; // exact ici = 50
+    return {question:`${a} billes pèsent ${aw} g. ${b} billes pèsent … g`, answer:bw.toString(), type:'numerical',
+      explanationSteps:[
+        `${aw}\,g 	ext{ pour } ${a} \Rightarrow 1 \text{ bille } = \dfrac{${aw}}{${a}} = \dfrac{50}{9}\,g`,
+        `${b} \text{ billes } = ${b} \times \dfrac{50}{9} = ${bw}\,g`
+      ]
+    };
+  } billes pèsent ${aw} g. ${b} billes pèsent … g`, answer:bw.toString(), type:'numerical', explanationSteps:[`${aw}\\,/\\,${a} = ${toFR(aw/a)}~g/\\text{bille}`,`\\Rightarrow ${b}~\\text{billes} = ${b}\\times${toFR(aw/a)} = ${toFR(bw)}~g`]};
   }
 
   temp_increase(){
     const t0=this.rnd(10,40), t1=this.rnd(120,220);
-    return {question:`Mon four indiquait ${t0}°C. Maintenant il indique ${t1}°C. Il a augmenté de ... °C`, answer:(t1-t0).toString(), type:'numerical'};
+    return {question:`Mon four indiquait ${t0}°C. Maintenant il indique ${t1}°C. Il a augmenté de … °C`, answer:(t1-t0).toString(), type:'numerical'};
   }
 
   compare_simple_fr(){
@@ -253,7 +233,7 @@ class Gen {
   }
 
   three_quarters_kg(){
-    return {question:`Les trois quarts de 1 kg = ... g`, answer:'750', type:'numerical', explanationSteps:[`\\dfrac{3}{4}\\times 1000 = 750\\,g`]};
+    return {question:`Les trois quarts de 1 kg = … g`, answer:'750', type:'numerical', explanationSteps:[`\\dfrac{3}{4}\\times 1000 = 750\\,g`]};
   }
 
   time_seq_plus2(){
@@ -262,43 +242,28 @@ class Gen {
     const m2=(m+4)%60;const h2=h+Math.floor((m+4)/60);
     const nextH=h+Math.floor((m+6)/60), nextM=(m+6)%60;
     const fmt=(H,M)=>`${H}h${String(M).padStart(2,'0')}min`;
-    return {question:`Complète la suite logique : ${fmt(h,m)} ; ${fmt(h1,m1)} ; ${fmt(h2,m2)} ; ...`, answer:fmt(nextH,nextM), type:'time_format', explanationSteps:[`On ajoute 2 minutes à chaque fois.`]};
+    return {question:`Complète la suite logique : ${fmt(h,m)} ; ${fmt(h1,m1)} ; ${fmt(h2,m2)} ; …`, answer:fmt(nextH,nextM), type:'time_format', explanationSteps:[`On ajoute 2 minutes à chaque fois.`]};
   }
 
   twice_more(){
     const theo=[16,18,20,22][this.rnd(0,3)];
-    return {question:`Théo pèse ${theo} kg. Il pèse 2 fois plus que sa sœur Lise. Lise pèse ... kg`, answer:(theo/2).toString(), type:'numerical'};
+    return {question:`Théo pèse ${theo} kg. Il pèse 2 fois plus que sa sœur Lise. Lise pèse … kg`, answer:(theo/2).toString(), type:'numerical'};
   }
 
-  between_3_9_and_4(){
-    const x=(Math.floor(Math.random()*10)+1)/100 + 3.9; // 3.91..3.99
-    const ans= x.toFixed(2).replace('.',',');
-    return {question:`Complète par un nombre qui convient : 3,9 < ... < 4`, answer:ans.replace(',','.'), type:'text', explanationSteps:[`Tout nombre décimal entre 3,90 et 4,00 convient, par ex. ${ans}.`]};
-  }
-
-  perimeter_square_dm(){
-    const side=this.rnd(2,6);
-    return {question:`Calcule le périmètre de ce carré de côté ${side} dm`, answer:(4*side).toString(), type:'numerical', unit:'dm', explanationSteps:[`P = 4\\times ${side} = ${4*side}\\,\\text{dm}`]};
-  }
-
-  nearest_estimation(){
-    const a=this.rnd(31,79), b=this.rnd(81,99);
-    const cand=[150,500,5000,800,3000];const prod=a*b;const nearest=cand.reduce((p,c)=>Math.abs(c-prod)<Math.abs(p-prod)?c:p,cand[0]);
-    return {question:`Entoure le nombre le plus proche du résultat de ${a}×${b} parmi : ${cand.join(', ')}`, answer:nearest.toString(), type:'choice', explanationSteps:[`\\text{Estimation : } ${a}\\approx${Math.round(a/10)*10},\\ ${b}\\approx${Math.round(b/10)*10}`]};
-  }
-
+  // multi: encadrement
   bound_fraction(){
     const num=this.rnd(5,11), den=this.rnd(3,9);const v=num/den;const lo=Math.floor(v), hi=lo+1;
-    return {question:`Encadre la fraction par deux entiers consécutifs : ... < ${num}/${den} < ... (réponds « a,b »)`, answer:`${lo},${hi}`, type:'pair', explanationSteps:[`${num}/${den}=${toFR(v,2)}\\Rightarrow ${lo}<${num}/${den}<${hi}`]};
+    return {question:`Encadre ${num}/${den} par deux entiers consécutifs : … < ${num}/${den} < …`, type:'multi', fields:[{label:'Entier inférieur',kind:'number'},{label:'Entier supérieur',kind:'number'}], answers:[lo.toString(),hi.toString()], explanationSteps:[`${num}/${den}=${toFR(v,2)}\\Rightarrow ${lo}<${num}/${den}<${hi}`]};
   }
 
   unit_price(){
     const price= [1,1.2,1.5,2][this.rnd(0,3)];const a=9, b=4, pa=(a*price).toFixed(2), pb=(b*price).toFixed(2), t=7, ans=(t*price).toFixed(2);
-    return {question:`Toutes les balles sont au même prix. ${a} balles coûtent ${pa} € et ${b} balles coûtent ${pb} €. ${t} balles coûtent ... €`, answer:ans, type:'money', explanationSteps:[`Prix unitaire = ${pa} / ${a} = ${price.toFixed(2)} € = ${pb} / ${b}`,`${t}\\times ${price.toFixed(2)} = ${ans} €`]};
+    return {question:`Toutes les balles sont au même prix. ${a} balles coûtent ${pa} € et ${b} balles coûtent ${pb} €. ${t} balles coûtent … €`, answer:ans, type:'money', explanationSteps:[`Prix unitaire = ${pa} / ${a} = ${price.toFixed(2)} € = ${pb} / ${b}`,`${t}\\times ${price.toFixed(2)} = ${ans} €`]};
   }
 
+  // multi: deux écritures
   repr_0_25(){
-    return {question:`Donne deux autres écritures de 0,25 (réponds « forme1 ; forme2 »)`, answer:`1/4;25%`, type:'text', explanationSteps:[`0,25 = \\dfrac{1}{4} = 25\\%`]};
+    return {question:`Donne deux autres écritures de 0,25`, type:'multi', fields:[{label:'Écriture 1',kind:'text'},{label:'Écriture 2',kind:'text'}], answers:['1/4','25%'], allowAnyOrder:true, normalizeText:true, explanationSteps:[`0,25 = \\dfrac{1}{4} = 25\\%`]};
   }
 
   times_ten(){
@@ -308,14 +273,13 @@ class Gen {
 
   percent_of_amount(){
     const p=[10,20,25,50][this.rnd(0,3)], amt= [24,32,44,80,120][this.rnd(0,4)];
-    const value=(p*amt)/100;                 // évite artefacts 0.2*24
-    const answerStr=value.toFixed(2);        // format monétaire
+    const value=(p*amt)/100; const answerStr=value.toFixed(2);
     return {question:`Calcule ${p}% de ${amt} €`, answer:answerStr, type:'numerical', unit:'€', explanationSteps:[`\\text{${p}% de } ${amt} = \\dfrac{${p}}{100} \\times ${amt}`,`= ${p}/100 \\times ${amt} = ${answerStr.replace('.',',')}\\,€`]};
   }
 
   dl_to_l(){
     const v=[5,10,15,20,30][this.rnd(0,4)];
-    return {question:`Complète : ${v} dL = ... L`, answer:(v/10).toString(), type:'numerical'};
+    return {question:`Complète : ${v} dL = … L`, answer:(v/10).toString(), type:'numerical'};
   }
 
   prod_cartesian(){
@@ -324,10 +288,8 @@ class Gen {
   }
 }
 
-// ============== Flux principal sécurisé (KaTeX prêt) ==============
 function startQuiz(){
   whenKatexReady(() => {
-    // Active auto-render si dispo
     if (typeof renderMathInElement === 'function') {
       renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});
     }
@@ -351,7 +313,7 @@ function startQuiz(){
 
 function startExamTimer(){clearInterval(examTimer);examTimer=setInterval(()=>{examLeft--;updateExamTimer();if(examLeft<=0){clearInterval(examTimer);autoFinish()}},1000)}
 function updateExamTimer(){const el=document.getElementById('timer');if(!el)return;const m=Math.floor(examLeft/60),s=String(examLeft%60).padStart(2,'0');el.textContent=`⏱️ ${m}:${s}`;if(examLeft<60){el.style.color='#dc3545';el.style.fontWeight='bold'}}
-function autoFinish(){for(let i=current;i<questions.length;i++){answers.push({question:questions[i].question,userAnswer:'',correctAnswer:questions[i].answer,isCorrect:false,timeSpent:0,explanationSteps:questions[i].explanationSteps,unit:questions[i].unit})}showResults()}
+function autoFinish(){for(let i=current;i<questions.length;i++){const q=questions[i];const ca=(q.type==='multi')?(q.answers||[]).join(' | '):q.answer;answers.push({question:q.question,userAnswer:'',correctAnswer:ca,isCorrect:false,timeSpent:0,explanationSteps:q.explanationSteps,unit:q.unit})}showResults()}
 
 function showQuestion(){
   if(current>=questions.length){clearInterval(examTimer);showResults();return}
@@ -362,15 +324,23 @@ function showQuestion(){
   html+=`<div class="question-content"><div class="question-text">${q.question}</div>`
   if(q.mathDisplay) html+=`<div class="math-display">${renderMathBlock(q.mathDisplay)}</div>`
 
-  let placeholder='Votre réponse';
-  if(q.unit) placeholder+=` (en ${q.unit})`;
-  if(q.type==='pair') placeholder='Réponds au format q,r (ex: 5,3)';
-  if(q.type==='time_format') placeholder='Format: 16h30min';
-
-  html+=`<input type="text" class="answer-input" id="answerInput" placeholder="${placeholder}" onkeypress="if(event.key==='Enter') validateAnswer()"></div>`
+  if(q.type==='multi'){
+    html+=`<div class="multi-inputs">`;
+    q.fields.forEach((f,i)=>{
+      const placeholder=f.kind==='number'? 'Nombre' : 'Texte';
+      html+=`<div style="margin:6px 0"><label style="display:block;font-weight:600;margin-bottom:6px">${f.label}</label><input type="text" class="answer-input" id="answerInput-${i}" placeholder="${placeholder}"></div>`
+    });
+    html+=`</div>`;
+  } else {
+    let placeholder='Votre réponse';
+    if(q.unit) placeholder+=` (en ${q.unit})`;
+    if(q.type==='time_format') placeholder='Format: 16h30min';
+    html+=`<input type="text" class="answer-input" id="answerInput" placeholder="${placeholder}" onkeypress="if(event.key==='Enter') validateAnswer()">`;
+  }
+  html+=`</div>`
   html+=`<div class="question-actions" id="questionActions"><button class="btn-validate" onclick="validateAnswer()">✓ Valider</button><button class="btn-skip" onclick="skipQuestion()">→ Passer</button></div><div id="feedback"></div>`
   box.innerHTML=html
-  document.getElementById('answerInput').focus()
+  const first=document.querySelector('.answer-input'); if(first) first.focus();
   if(mode==='training') startTimer(); else updateExamTimer()
 }
 
@@ -378,40 +348,62 @@ function startTimer(){clearInterval(timer);elapsed=0;timer=setInterval(()=>{elap
 
 function validateAnswer(){if(hasAnswered)return;const mode=document.getElementById('mode').value;if(mode==='training')clearInterval(timer);hasAnswered=true
   const t=Math.round((Date.now()-startedAt)/1000);times.push(t)
-  const input=document.getElementById('answerInput').value.trim();const q=questions[current];
-  let ua=normNumLike(input), ca=normNumLike(q.answer)
-  if(q.type==='time_format'){const fix=s=>s.replace(/(\\d+)h(\\d)(?!\\d)/,(m,H,mn)=>`${H}h0${mn}`).replace(/^(\\d+)h$/,'$1h00');ua=fix(ua);ca=fix(ca)}
-  let ok;
-  if(q.type==='numerical' || q.type==='time_format' || q.type==='money'){ok=isNumEq(ua,ca)}
-  else if(q.type==='pair'){ok=ua===ca}
-  else if(q.type==='choice' || q.type==='text' || q.type==='pattern'){ok=ua===ca}
-  else {ok=ua===ca}
+  const q=questions[current];
+  let ok=false; let shownAnswer=""; let userShown="";
 
-  answers.push({question:q.question,userAnswer:input,correctAnswer:q.answer,isCorrect:ok,timeSpent:t,explanationSteps:q.explanationSteps,unit:q.unit})
+  if(q.type==='multi'){
+    const userVals=q.fields.map((_,i)=>{const el=document.getElementById(`answerInput-${i}`);return el?el.value.trim():'';});
+    userShown=userVals.join(' | ');
+    const correct=q.answers.slice();
+    const normVal=(s)=> q.normalizeText? s.toLowerCase().replace(/\s/g,'').replace(',', '.') : s.toLowerCase().replace(',', '.').replace(/\s/g,'');
+    const userNorm=userVals.map(normVal);
+    const corrNorm=correct.map(normVal);
+    if(q.allowAnyOrder){
+      const bag=(arr)=>arr.slice().sort().join('\u0001');
+      ok = bag(userNorm)===bag(corrNorm);
+    } else {
+      ok = userNorm.every((v,i)=>{
+        if(q.fields[i].kind==='number'){
+          const a=Number(v), b=Number(corrNorm[i]);
+          return Number.isFinite(a)&&Number.isFinite(b)&&Math.abs(a-b)<=1e-9;
+        }
+        return v===corrNorm[i];
+      });
+    }
+    shownAnswer = correct.join(' | ');
+  } else {
+    const input=document.getElementById('answerInput').value.trim();
+    userShown=input;
+    let ua=normNumLike(input), ca=normNumLike(q.answer)
+    if(q.type==='time_format'){const fix=s=>s.replace(/(\d+)h(\d)(?!\d)/,(m,H,mn)=>`${H}h0${mn}`).replace(/^(\d+)h$/,'$1h00');ua=fix(ua);ca=fix(ca)}
+    if(q.type==='numerical' || q.type==='time_format' || q.type==='money'){ok=isNumEq(ua,ca)} else { ok=ua===ca }
+    shownAnswer=q.answer
+  }
 
-  if(mode==='training'){
-    const fb=document.getElementById('feedback');fb.className='feedback '+(ok?'correct':'incorrect');
-    const showAnswer=(q.unit==='€'&&typeof q.answer==='string')? q.answer.replace('.',',') : q.answer;
-    let html = ok? `✓ Correct ! (${t}s)` : `✗ Incorrect. Réponse : ${showAnswer}${q.unit? ' '+q.unit:''} (${t}s)`
-    if(q.explanationSteps){html+=`<div class="explanation-box ${ok?'correct':'incorrect'}"><strong>📝 Explication :</strong>${stepsHTML(q.explanationSteps)}</div>`}
-    fb.innerHTML=html
-    document.getElementById('questionActions').innerHTML='<button class="btn-next" onclick="nextQuestion()">Suivant →</button>'
-    document.getElementById('answerInput').disabled=true
-  } else { nextQuestion() }
+  answers.push({question:q.question,userAnswer:userShown,correctAnswer:shownAnswer,isCorrect:ok,timeSpent:t,explanationSteps:q.explanationSteps,unit:q.unit})
+
+  const fb=document.getElementById('feedback');fb.className='feedback '+(ok?'correct':'incorrect');
+  const showAnsDisplay=(q.unit==='€'&&typeof shownAnswer==='string')? shownAnswer.replace('.',',') : shownAnswer;
+  let html = ok? `✓ Correct ! (${t}s)` : `✗ Incorrect. Réponse : ${showAnsDisplay}${q.unit? ' '+q.unit:''} (${t}s)`
+  if(mode==='training' && q.explanationSteps){html+=`<div class="explanation-box ${ok?'correct':'incorrect'}"><strong>📝 Explication :</strong>${stepsHTML(q.explanationSteps)}</div>`}
+  fb.innerHTML=html
+  document.getElementById('questionActions').innerHTML='<button class="btn-next" onclick="nextQuestion()">Suivant →</button>'
+  const inputs=document.querySelectorAll('.answer-input'); inputs.forEach(i=>i.disabled=true)
 }
 
 function skipQuestion(){if(hasAnswered)return;const mode=document.getElementById('mode').value;if(mode==='training')clearInterval(timer);hasAnswered=true
   const t=Math.round((Date.now()-startedAt)/1000);times.push(t)
   const q=questions[current]
-  answers.push({question:q.question,userAnswer:'',correctAnswer:q.answer,isCorrect:false,timeSpent:t,explanationSteps:q.explanationSteps,unit:q.unit})
+  const shownAnswer=(q.type==='multi')? (q.answers||[]).join(' | ') : q.answer;
+  answers.push({question:q.question,userAnswer:'',correctAnswer:shownAnswer,isCorrect:false,timeSpent:t,explanationSteps:q.explanationSteps,unit:q.unit})
   if(mode==='training'){
     const fb=document.getElementById('feedback');fb.className='feedback incorrect';
-    const showAnswer=(q.unit==='€'&&typeof q.answer==='string')? q.answer.replace('.',',') : q.answer;
-    let html = `✗ Question passée. Réponse : ${showAnswer}${q.unit? ' '+q.unit:''} (${t}s)`
+    const showAnsDisplay=(q.unit==='€'&&typeof shownAnswer==='string')? shownAnswer.replace('.',',') : shownAnswer;
+    let html = `✗ Question passée. Réponse : ${showAnsDisplay}${q.unit? ' '+q.unit:''} (${t}s)`
     if(q.explanationSteps){html+=`<div class="explanation-box incorrect"><strong>📝 Explication :</strong>${stepsHTML(q.explanationSteps)}</div>`}
     fb.innerHTML=html
     document.getElementById('questionActions').innerHTML='<button class="btn-next" onclick="nextQuestion()">Suivant →</button>'
-    document.getElementById('answerInput').disabled=true
+    const inputs=document.querySelectorAll('.answer-input'); inputs.forEach(i=>i.disabled=true)
   } else { nextQuestion() }
 }
 
@@ -431,14 +423,12 @@ function showResults(){clearInterval(timer);clearInterval(examTimer)
   box.innerHTML=`<div class="results"><h2>🎯 Résultats</h2><div class="score">${good} / ${questions.length}</div><p style="font-size:1.1em;color:#666">Score : ${pct}%</p>${stats}<div class="results-details"><h3>📋 Détail des réponses ${mode==='training'?'(avec explications)':''}</h3>${review}</div><button onclick="location.reload()">🔄 Nouveau test</button></div>`
 }
 
-// ============== Init : attend KaTeX pour activer l'auto-render ==============
 whenKatexReady(function(){
   if (typeof renderMathInElement === 'function') {
     renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});
   }
 });
 
-// Expose global
 window.startQuiz=startQuiz;window.validateAnswer=validateAnswer;window.skipQuestion=skipQuestion;window.nextQuestion=nextQuestion;
 </script>
 </body>

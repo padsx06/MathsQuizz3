@@ -203,8 +203,8 @@ class Gen {
     const a=18, aw=100, b=9, bw=(aw*b)/a; // exact ici = 50
     return {question:`${a} billes pèsent ${aw} g. ${b} billes pèsent … g`, answer:bw.toString(), type:'numerical',
       explanationSteps:[
-        `${aw}\,g 	ext{ pour } ${a} \Rightarrow 1 \text{ bille } = \dfrac{${aw}}{${a}} = \dfrac{50}{9}\,g`,
-        `${b} \text{ billes } = ${b} \times \dfrac{50}{9} = ${bw}\,g`
+        `${aw}\\,g\\,\\text{ pour }\\,${a} \\Rightarrow 1\\,\\text{bille} = \\dfrac{${aw}}{${a}} = \\dfrac{50}{9}\\,g`,
+        `${b}\\,\\text{billes} = ${b} \\times \\dfrac{50}{9} = ${bw}\\,g`
       ]
     };
   } 
@@ -284,6 +284,32 @@ class Gen {
   prod_cartesian(){
     const c=this.rnd(3,6), t=this.rnd(2,4);
     return {question:`Une usine fabrique des cahiers : ${c} couleurs et ${t} tailles possibles. Combien de cahiers différents ?`, answer:(c*t).toString(), type:'numerical', explanationSteps:[`${c}\\times${t} = ${c*t}`]};
+  }
+
+  // 🔹 AJOUT : périmètre d’un carré (en dm)
+  perimeter_square_dm(){
+    const side = this.rnd(2, 15); // côté en dm
+    const perim = 4 * side;
+    return {
+      question: `Un carré a un côté de ${side} dm. Son périmètre est … dm`,
+      answer: perim.toString(),
+      type: 'numerical',
+      explanationSteps: [
+        `\\text{Périmètre} = 4\\times c = 4\\times ${side} = ${perim}\\,\\text{dm}`
+      ]
+    };
+  }
+
+  // (facultatif) placeholder si tu gardes 'nearest_estimation' dans types()
+  nearest_estimation(){
+    const n=this.rnd(120,980);
+    const tens=Math.round(n/10)*10;
+    return {question:`Donne une estimation au plus proche à la dizaine : ${n} ≈ …`, answer:tens.toString(), type:'numerical', explanationSteps:[`\\text{Arrondi à la dizaine la plus proche}: ${n} \\approx ${tens}`]};
+  }
+
+  between_3_9_and_4(){
+    const x=this.rndf(3.9,4,2);
+    return {question:`Donne un nombre entre 3,9 et 4`, answer:x.toString(), type:'numerical', explanationSteps:[`Exemple de réponse correcte : ${x}`]};
   }
 }
 
@@ -374,8 +400,15 @@ function validateAnswer(){if(hasAnswered)return;const mode=document.getElementBy
     const input=document.getElementById('answerInput').value.trim();
     userShown=input;
     let ua=normNumLike(input), ca=normNumLike(q.answer)
-    if(q.type==='time_format'){const fix=s=>s.replace(/(\d+)h(\d)(?!\d)/,(m,H,mn)=>`${H}h0${mn}`).replace(/^(\d+)h$/,'$1h00');ua=fix(ua);ca=fix(ca)}
-    if(q.type==='numerical' || q.type==='time_format' || q.type==='money'){ok=isNumEq(ua,ca)} else { ok=ua===ca }
+    if(q.type==='time_format'){
+      const fix=s=>s.replace(/(\d+)h(\d)(?!\d)/,(m,H,mn)=>`${H}h0${mn}`).replace(/^(\d+)h$/,'$1h00');
+      ua=fix(ua); ca=fix(ca);
+      ok = ua === ca; // comparaison chaîne normalisée
+    } else if(q.type==='numerical' || q.type==='money'){
+      ok = isNumEq(ua, ca);
+    } else {
+      ok = ua === ca;
+    }
     shownAnswer=q.answer
   }
 

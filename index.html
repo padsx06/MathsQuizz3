@@ -44,7 +44,6 @@
     .explanation-box.incorrect{background:#ffebee;border-color:#f44336}
     .math-steps{margin-top:10px;line-height:2.1}
     .math-step{display:block;margin:6px 0;font-size:1.05em}
-    /* Masquer la couche MathML de KaTeX (éviter le doublon visuel) */
     .katex .katex-mathml{position:absolute!important;clip:rect(1px,1px,1px,1px)!important;clip-path:inset(50%)!important;height:1px!important;width:1px!important;overflow:hidden!important;padding:0!important;border:0!important}
     .katex .katex-html{position:relative}
     .results{text-align:center;padding:40px}
@@ -252,7 +251,7 @@ class Gen {
     }
   }
 
-  /* --- Nouveauté : périmètre carré en dm --- */
+  /* --- Périmètre carré en dm --- */
   perimeterSquareDm(){
     const side = this.rnd(2, 15); // côté en dm
     const perim = 4 * side;
@@ -266,7 +265,7 @@ class Gen {
     };
   }
 
-  /* ======== EXERCICES EXISTANTS (certains refactorisés) ======== */
+  /* ======== EXERCICES ======== */
   mult_basic(){
     const a=this.rnd(3,9), b=this.rnd(3,9), r=a*b;
     return {question:`Calcule ${a} × ${b}`, answer:r.toString(), type:'numerical', explanationSteps:[`${a} \\times ${b} = ${r}`]};
@@ -276,9 +275,15 @@ class Gen {
     const n=this.rnd(12,30);
     const divs=[];for(let d=2;d<n;d++){if(n%d===0)divs.push(d)}
     const d=divs.length? divs[this.rnd(0,divs.length-1)]:1; const q=n/d;
-    return {question:`Complète : ${n} = … × …`, type:'multi',
+    return {
+      question:`Complète : ${n} = … × …`,
+      type:'multi',
       fields:[{label:'Facteur 1',kind:'number'},{label:'Facteur 2',kind:'number'}],
-      answers:[d.toString(),q.toString()], allowAnyOrder:true,
+      answers:[d.toString(),q.toString()],
+      allowAnyOrder:true,
+      // ✅ nouvelles propriétés : accepter toute paire dont le produit vaut n
+      acceptAnyFactorPair:true,
+      targetProduct:n,
       explanationSteps:[`${n} = ${d} \\times ${q}`]
     };
   }
@@ -323,7 +328,6 @@ class Gen {
       explanationSteps:[`${k}\\times25 = ${k}\\times(100/4)= ${(k*100)}/4 = ${k*25}`]};
   }
 
-  // Proportion "ancienne" (garde l'exactitude)
   prop_weight(){
     const a=18, aw=100, b=9, bw=(aw*b)/a; // 50 g pour 9 billes
     return {question:`${a} billes pèsent ${aw} g. ${b} billes pèsent … g`,
@@ -360,7 +364,6 @@ class Gen {
       explanationSteps:[`${a}\\times${m} = ${a}\\times(${m/10}\\times10) = ${(a*(m/10))}\\times10 = ${a*m}`]};
   }
 
-  // ⤵ refactorisé via générique
   three_quarters_kg(){
     return this.makeFractionOfKg({num:3, den:4});
   }
@@ -400,7 +403,6 @@ class Gen {
       explanationSteps:[`Prix unitaire = ${pa} / ${a} = ${price.toFixed(2)} € = ${pb} / ${b}`,`${t}\\times ${price.toFixed(2)} = ${ans} €`]};
   }
 
-  // ⤵ refactorisé via générique
   repr_0_25(){ return this.makeReprDecimal({valueDec:0.25, fracNum:1, fracDen:4, percent:25}); }
 
   times_ten(){
@@ -417,7 +419,6 @@ class Gen {
       explanationSteps:[`${p}\\text{% de} ${amt} = \\dfrac{${p}}{100} \\times ${amt}`,`= ${p}/100 \\times ${amt} = ${answerStr.replace('.',',')}\\,€`]};
   }
 
-  // ⤵ refactorisé via générique
   dl_to_l(){
     return this.makeConversion({values:[5,10,15,20,30], unitFrom:'dL', unitTo:'L', num:1, den:10, decimals:2});
   }
@@ -437,33 +438,27 @@ class Gen {
       explanationSteps:[`\\text{Arrondi à la dizaine la plus proche}: ${n} \\approx ${tens}`]};
   }
 
-  // ⤵ refactorisé via générique
   between_3_9_and_4(){
     return this.makeBetween({a:3.9, b:4, decimals:2});
   }
 
-  /* ======== VARIANTES BASIQUES SUPPLÉMENTAIRES ======== */
-  // Représentations
+  /* ======== VARIANTES SUPPLÉMENTAIRES ======== */
   repr_0_5(){  return this.makeReprDecimal({valueDec:0.5,  fracNum:1, fracDen:2, percent:50}); }
   repr_0_1(){  return this.makeReprDecimal({valueDec:0.1,  fracNum:1, fracDen:10,percent:10}); }
   repr_0_75(){ return this.makeReprDecimal({valueDec:0.75, fracNum:3, fracDen:4, percent:75}); }
   repr_0_4(){  return this.makeReprDecimal({valueDec:0.4,  fracNum:2, fracDen:5, percent:40}); }
 
-  // Intervalles
   between_1_2(){ return this.makeBetween({a:1, b:2, decimals:2}); }
   between_0_1(){ return this.makeBetween({a:0, b:1, decimals:2}); }
 
-  // Conversions
   cl_to_l(){ return this.makeConversion({values:[25,50,75], unitFrom:'cL', unitTo:'L', num:1, den:100, decimals:3}); }
   ml_to_l(){ return this.makeConversion({values:[125,250,500], unitFrom:'mL', unitTo:'L', num:1, den:1000, decimals:3}); }
   l_to_cl(){ return this.makeConversion({values:[1,1.5,2], unitFrom:'L', unitTo:'cL', num:100, den:1, decimals:2}); }
   m_to_cm(){ return this.makeConversion({values:[2,3.5,7], unitFrom:'m', unitTo:'cm', num:100, den:1, decimals:2}); }
 
-  // Fractions de kg
   one_fifth_kg(){   return this.makeFractionOfKg({num:1, den:5}); }   // 200 g
   one_eighth_kg(){  return this.makeFractionOfKg({num:1, den:8}); }   // 125 g
 
-  // Proportion (poids unitaire choisi pour rester "propre")
   prop_weight_125(){ return this.makePropWeight({unitWeight:12.5, A:8,  B:6}); } // 100 g → 75 g
   prop_weight_2_5(){ return this.makePropWeight({unitWeight:2.5,  A:12, B:7}); } // 30 g → 17,5 g
   prop_weight_5(){   return this.makePropWeight({unitWeight:5,    A:9,  B:4}); } // 45 g → 20 g
@@ -587,23 +582,42 @@ function validateAnswer(){
   if(q.type==='multi'){
     const userVals=q.fields.map((_,i)=>{const el=document.getElementById(`answerInput-${i}`);return el?el.value.trim():'';});
     userShown=userVals.join(' | ');
-    const correct=q.answers.slice();
-    const normVal=(s)=> q.normalizeText? s.toLowerCase().replace(/\s/g,'').replace(',', '.') : s.toLowerCase().replace(',', '.').replace(/\s/g,'');
-    const userNorm=userVals.map(normVal);
-    const corrNorm=correct.map(normVal);
-    if(q.allowAnyOrder){
-      const bag=(arr)=>arr.slice().sort().join('\u0001');
-      ok = bag(userNorm)===bag(corrNorm);
-    } else {
-      ok = userNorm.every((v,i)=>{
-        if(q.fields[i].kind==='number'){
-          const a=Number(v), b=Number(corrNorm[i]);
-          return Number.isFinite(a)&&Number.isFinite(b)&&Math.abs(a-b)<=1e-9;
+
+    /* ✅ Contrôle spécial "paire de facteurs" si demandé */
+    if (q.acceptAnyFactorPair && typeof q.targetProduct === 'number') {
+      const [aStr,bStr] = userVals.map(s=>s.replace(',','.'));
+      const a = Number(aStr), b = Number(bStr);
+      if (Number.isFinite(a) && Number.isFinite(b)) {
+        const okProd = Math.abs(a*b - q.targetProduct) <= 1e-9;
+        // Option : n'accepter que des entiers positifs
+        // const okForme = Number.isInteger(a) && Number.isInteger(b) && a>0 && b>0;
+        if (okProd /* && okForme */) {
+          ok = true;
         }
-        return v===corrNorm[i];
-      });
+      }
     }
-    shownAnswer = correct.join(' | ');
+
+    // Si pas déjà validé par la règle "produit", on compare aux réponses proposées
+    if (!ok) {
+      const correct=q.answers.slice();
+      const normVal=(s)=> q.normalizeText? s.toLowerCase().replace(/\s/g,'').replace(',', '.') : s.toLowerCase().replace(',', '.').replace(/\s/g,'');
+      const userNorm=userVals.map(normVal);
+      const corrNorm=correct.map(normVal);
+      if(q.allowAnyOrder){
+        const bag=(arr)=>arr.slice().sort().join('\u0001');
+        ok = bag(userNorm)===bag(corrNorm);
+      } else {
+        ok = userNorm.every((v,i)=>{
+          if(q.fields[i].kind==='number'){
+            const a=Number(v), b=Number(corrNorm[i]);
+            return Number.isFinite(a)&&Number.isFinite(b)&&Math.abs(a-b)<=1e-9;
+          }
+          return v===corrNorm[i];
+        });
+      }
+    }
+
+    shownAnswer = (q.answers||[]).join(' | ');
   } else {
     const input=document.getElementById('answerInput').value.trim();
     userShown=input;
@@ -612,7 +626,7 @@ function validateAnswer(){
     if(q.type==='time_format'){
       const fix=s=>s.replace(/(\d+)h(\d)(?!\d)/,(m,H,mn)=>`${H}h0${mn}`).replace(/^(\d+)h$/,'$1h00');
       ua=fix(ua); ca=fix(ca);
-      ok = ua === ca; // comparaison chaîne normalisée
+      ok = ua === ca;
     } else if(q.type==='numerical' || q.type==='money'){
       ok = isNumEq(ua, ca);
     } else {

@@ -117,15 +117,88 @@ class Gen {
   rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a}
   rndf(a,b,d=2){const x=Math.random()*(b-a)+a;const k=10**d;return Math.round(x*k)/k}
 
+  /* ======== MÉTHODES GÉNÉRIQUES ======== */
+  makeReprDecimal({valueDec, fracNum, fracDen, percent}){
+    const decLabel = valueDec.toString().replace('.', ',');
+    return {
+      question: `Donne deux autres écritures de ${decLabel}`,
+      type: 'multi',
+      fields: [{label:'Écriture 1',kind:'text'},{label:'Écriture 2',kind:'text'}],
+      answers: [`${fracNum}/${fracDen}`, `${percent}%`],
+      allowAnyOrder: true,
+      normalizeText: true,
+      explanationSteps: [`${decLabel} = \\dfrac{${fracNum}}{${fracDen}} = ${percent}\\%`]
+    };
+  }
+
+  makeBetween({a, b, decimals=2}){
+    const x = this.rndf(a, b, decimals);
+    const labelA = a.toString().replace('.', ',');
+    const labelB = b.toString().replace('.', ',');
+    return {
+      question: `Donne un nombre entre ${labelA} et ${labelB}`,
+      answer: x.toString(),
+      type: 'numerical',
+      explanationSteps: [`Exemple de réponse correcte : ${x.toString().replace('.', ',')}`]
+    };
+  }
+
+  makeConversion({values, unitFrom, unitTo, num=1, den=1, decimals=3}){
+    const v = values[this.rnd(0, values.length-1)];
+    const res = v * num / den;
+    const answerStr = Number.isInteger(res) ? res.toString() : res.toFixed(decimals).replace(/\.?0+$/,'');
+    return {
+      question: `Complète : ${v} ${unitFrom} = … ${unitTo}`,
+      answer: answerStr,
+      type: 'numerical'
+    };
+  }
+
+  makeFractionOfKg({num, den}){
+    const grams = (1000 * num) / den;
+    return {
+      question: `Les ${num}/${den} de 1 kg = … g`,
+      answer: grams.toString(),
+      type: 'numerical',
+      explanationSteps: [`\\dfrac{${num}}{${den}}\\times 1000 = ${grams}\\,g`]
+    };
+  }
+
+  makePropWeight({unitWeight, A, B}){
+    const aw = +(A * unitWeight).toFixed(3);
+    const bw = +(B * unitWeight).toFixed(3);
+    const awStr = Number.isInteger(aw) ? aw.toString() : aw.toString().replace('.', ',');
+    const bwStr = Number.isInteger(bw) ? bw.toString() : bw.toString().replace('.', ',');
+    const uStr  = unitWeight.toString().replace('.', ',');
+    return {
+      question: `${A} billes pèsent ${awStr} g. ${B} billes pèsent … g`,
+      answer: bw.toString(),
+      type: 'numerical',
+      explanationSteps: [
+        `\\text{Poids unitaire} = ${uStr}\\,g/\\text{bille}`,
+        `${B}\\,\\text{billes} = ${B}\\times ${uStr} = ${bwStr}\\,g`
+      ]
+    };
+  }
+
+  /* ======== LISTE DES TYPES ======== */
   types(){
     return [
+      // existants
       'mult_basic','factor_completion','half_integer','share_quotient_remainder','add_two_integers',
       'days_to_hours','sum_euros','mental_3x25','proportion_weight','temp_increase',
-      'compare_simple_fractions','subtraction_thousands','times_tens','three_quarters_kg',
-      'time_sequence_plus2','twice_more_than','between_3_9_and_4','perimeterSquareDm',
+      'compare_simple_fractions','subtraction_thousands','times_tens',
+      'time_sequence_plus2','twice_more_than','perimeterSquareDm',
       'nearest_estimation','bound_fraction_consecutive','unit_price_consistent',
       'two_representations_0_25','times_ten','percent_of_amount','deciliter_to_liter',
-      'product_cartesian'
+      'product_cartesian','between_3_9_and_4','three_quarters_kg',
+
+      // variantes basiques via génériques
+      'repr_0_5','repr_0_1','repr_0_75','repr_0_4',
+      'between_1_2','between_0_1',
+      'cl_to_l','ml_to_l','l_to_cl','m_to_cm',
+      'one_fifth_kg','one_eighth_kg',
+      'prop_weight_125','prop_weight_2_5','prop_weight_5'
     ]
   }
 
@@ -146,10 +219,8 @@ class Gen {
       case 'compare_simple_fractions': return this.compare_simple_fr();
       case 'subtraction_thousands': return this.sub_thousands();
       case 'times_tens': return this.times_tens();
-      case 'three_quarters_kg': return this.three_quarters_kg();
       case 'time_sequence_plus2': return this.time_seq_plus2();
       case 'twice_more_than': return this.twice_more();
-      case 'between_3_9_and_4': return this.between_3_9_and_4();
       case 'perimeterSquareDm': return this.perimeterSquareDm();
       case 'nearest_estimation': return this.nearest_estimation();
       case 'bound_fraction_consecutive': return this.bound_fraction();
@@ -159,6 +230,25 @@ class Gen {
       case 'percent_of_amount': return this.percent_of_amount();
       case 'deciliter_to_liter': return this.dl_to_l();
       case 'product_cartesian': return this.prod_cartesian();
+      case 'between_3_9_and_4': return this.between_3_9_and_4();
+      case 'three_quarters_kg': return this.three_quarters_kg();
+
+      // variantes génériques
+      case 'repr_0_5': return this.repr_0_5();
+      case 'repr_0_1': return this.repr_0_1();
+      case 'repr_0_75': return this.repr_0_75();
+      case 'repr_0_4': return this.repr_0_4();
+      case 'between_1_2': return this.between_1_2();
+      case 'between_0_1': return this.between_0_1();
+      case 'cl_to_l': return this.cl_to_l();
+      case 'ml_to_l': return this.ml_to_l();
+      case 'l_to_cl': return this.l_to_cl();
+      case 'm_to_cm': return this.m_to_cm();
+      case 'one_fifth_kg': return this.one_fifth_kg();
+      case 'one_eighth_kg': return this.one_eighth_kg();
+      case 'prop_weight_125': return this.prop_weight_125();
+      case 'prop_weight_2_5': return this.prop_weight_2_5();
+      case 'prop_weight_5': return this.prop_weight_5();
     }
   }
 
@@ -176,6 +266,7 @@ class Gen {
     };
   }
 
+  /* ======== EXERCICES EXISTANTS (certains refactorisés) ======== */
   mult_basic(){
     const a=this.rnd(3,9), b=this.rnd(3,9), r=a*b;
     return {question:`Calcule ${a} × ${b}`, answer:r.toString(), type:'numerical', explanationSteps:[`${a} \\times ${b} = ${r}`]};
@@ -232,6 +323,7 @@ class Gen {
       explanationSteps:[`${k}\\times25 = ${k}\\times(100/4)= ${(k*100)}/4 = ${k*25}`]};
   }
 
+  // Proportion "ancienne" (garde l'exactitude)
   prop_weight(){
     const a=18, aw=100, b=9, bw=(aw*b)/a; // 50 g pour 9 billes
     return {question:`${a} billes pèsent ${aw} g. ${b} billes pèsent … g`,
@@ -268,9 +360,9 @@ class Gen {
       explanationSteps:[`${a}\\times${m} = ${a}\\times(${m/10}\\times10) = ${(a*(m/10))}\\times10 = ${a*m}`]};
   }
 
+  // ⤵ refactorisé via générique
   three_quarters_kg(){
-    return {question:`Les trois quarts de 1 kg = … g`, answer:'750', type:'numerical',
-      explanationSteps:[`\\dfrac{3}{4}\\times 1000 = 750\\,g`]};
+    return this.makeFractionOfKg({num:3, den:4});
   }
 
   time_seq_plus2(){
@@ -308,12 +400,8 @@ class Gen {
       explanationSteps:[`Prix unitaire = ${pa} / ${a} = ${price.toFixed(2)} € = ${pb} / ${b}`,`${t}\\times ${price.toFixed(2)} = ${ans} €`]};
   }
 
-  repr_0_25(){
-    return {question:`Donne deux autres écritures de 0,25`, type:'multi',
-      fields:[{label:'Écriture 1',kind:'text'},{label:'Écriture 2',kind:'text'}],
-      answers:['1/4','25%'], allowAnyOrder:true, normalizeText:true,
-      explanationSteps:[`0,25 = \\dfrac{1}{4} = 25\\%`]};
-  }
+  // ⤵ refactorisé via générique
+  repr_0_25(){ return this.makeReprDecimal({valueDec:0.25, fracNum:1, fracDen:4, percent:25}); }
 
   times_ten(){
     const n=this.rnd(2,9);
@@ -326,12 +414,12 @@ class Gen {
     const value=(p*amt)/100; const answerStr=value.toFixed(2);
     return {question:`Calcule ${p}% de ${amt} €`,
       answer:answerStr, type:'numerical', unit:'€',
-      explanationSteps:[`\\text{${p}% de } ${amt} = \\dfrac{${p}}{100} \\times ${amt}`,`= ${p}/100 \\times ${amt} = ${answerStr.replace('.',',')}\\,€`]};
+      explanationSteps:[`${p}\\text{% de} ${amt} = \\dfrac{${p}}{100} \\times ${amt}`,`= ${p}/100 \\times ${amt} = ${answerStr.replace('.',',')}\\,€`]};
   }
 
+  // ⤵ refactorisé via générique
   dl_to_l(){
-    const v=[5,10,15,20,30][this.rnd(0,4)];
-    return {question:`Complète : ${v} dL = … L`, answer:(v/10).toString(), type:'numerical'};
+    return this.makeConversion({values:[5,10,15,20,30], unitFrom:'dL', unitTo:'L', num:1, den:10, decimals:2});
   }
 
   prod_cartesian(){
@@ -349,11 +437,36 @@ class Gen {
       explanationSteps:[`\\text{Arrondi à la dizaine la plus proche}: ${n} \\approx ${tens}`]};
   }
 
+  // ⤵ refactorisé via générique
   between_3_9_and_4(){
-    const x=this.rndf(3.9,4,2);
-    return {question:`Donne un nombre entre 3,9 et 4`, answer:x.toString(), type:'numerical',
-      explanationSteps:[`Exemple de réponse correcte : ${x}`]};
+    return this.makeBetween({a:3.9, b:4, decimals:2});
   }
+
+  /* ======== VARIANTES BASIQUES SUPPLÉMENTAIRES ======== */
+  // Représentations
+  repr_0_5(){  return this.makeReprDecimal({valueDec:0.5,  fracNum:1, fracDen:2, percent:50}); }
+  repr_0_1(){  return this.makeReprDecimal({valueDec:0.1,  fracNum:1, fracDen:10,percent:10}); }
+  repr_0_75(){ return this.makeReprDecimal({valueDec:0.75, fracNum:3, fracDen:4, percent:75}); }
+  repr_0_4(){  return this.makeReprDecimal({valueDec:0.4,  fracNum:2, fracDen:5, percent:40}); }
+
+  // Intervalles
+  between_1_2(){ return this.makeBetween({a:1, b:2, decimals:2}); }
+  between_0_1(){ return this.makeBetween({a:0, b:1, decimals:2}); }
+
+  // Conversions
+  cl_to_l(){ return this.makeConversion({values:[25,50,75], unitFrom:'cL', unitTo:'L', num:1, den:100, decimals:3}); }
+  ml_to_l(){ return this.makeConversion({values:[125,250,500], unitFrom:'mL', unitTo:'L', num:1, den:1000, decimals:3}); }
+  l_to_cl(){ return this.makeConversion({values:[1,1.5,2], unitFrom:'L', unitTo:'cL', num:100, den:1, decimals:2}); }
+  m_to_cm(){ return this.makeConversion({values:[2,3.5,7], unitFrom:'m', unitTo:'cm', num:100, den:1, decimals:2}); }
+
+  // Fractions de kg
+  one_fifth_kg(){   return this.makeFractionOfKg({num:1, den:5}); }   // 200 g
+  one_eighth_kg(){  return this.makeFractionOfKg({num:1, den:8}); }   // 125 g
+
+  // Proportion (poids unitaire choisi pour rester "propre")
+  prop_weight_125(){ return this.makePropWeight({unitWeight:12.5, A:8,  B:6}); } // 100 g → 75 g
+  prop_weight_2_5(){ return this.makePropWeight({unitWeight:2.5,  A:12, B:7}); } // 30 g → 17,5 g
+  prop_weight_5(){   return this.makePropWeight({unitWeight:5,    A:9,  B:4}); } // 45 g → 20 g
 }
 
 /* ---------- Quiz flow ---------- */

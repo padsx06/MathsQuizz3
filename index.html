@@ -207,8 +207,7 @@ class Gen {
         `${b} \text{ billes } = ${b} \times \dfrac{50}{9} = ${bw}\,g`
       ]
     };
-  } billes pèsent ${aw} g. ${b} billes pèsent … g`, answer:bw.toString(), type:'numerical', explanationSteps:[`${aw}\\,/\\,${a} = ${toFR(aw/a)}~g/\\text{bille}`,`\\Rightarrow ${b}~\\text{billes} = ${b}\\times${toFR(aw/a)} = ${toFR(bw)}~g`]};
-  }
+  } 
 
   temp_increase(){
     const t0=this.rnd(10,40), t1=this.rnd(120,220);

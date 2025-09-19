@@ -44,7 +44,7 @@
     .explanation-box.incorrect{background:#ffebee;border-color:#f44336}
     .math-steps{margin-top:10px;line-height:2.1}
     .math-step{display:block;margin:6px 0;font-size:1.05em}
-    /* Masque la couche MathML de KaTeX pour éviter les doublons visuels */
+    /* Masquer la couche MathML de KaTeX (éviter le doublon visuel) */
     .katex .katex-mathml{position:absolute!important;clip:rect(1px,1px,1px,1px)!important;clip-path:inset(50%)!important;height:1px!important;width:1px!important;overflow:hidden!important;padding:0!important;border:0!important}
     .katex .katex-html{position:relative}
     .results{text-align:center;padding:40px}
@@ -56,7 +56,6 @@
     .review-explanation{margin-top:10px;padding:10px;background:#f5f5f5;border-radius:5px;border-left:3px solid #9c27b0}
     .time-info{background:#e3f2fd;padding:10px 15px;border-radius:8px;margin:10px 0;color:#1976d2;font-weight:700}
     .figure-container svg{max-width:100%;height:auto;overflow:visible}
-    @media (max-width:600px){.controls{flex-direction:column}.control-group{width:100%;justify-content:space-between}h1{font-size:1.6em}}
   </style>
 </head>
 <body>
@@ -94,6 +93,7 @@
 </div>
 
 <script>
+/* ---------- Utils ---------- */
 function whenKatexReady(cb){
   if (window.katex && typeof window.katex.render === 'function') { cb(); return; }
   window.addEventListener('load', function(){
@@ -109,15 +109,23 @@ function fmtTime(s){ const m=Math.floor(s/60), r=s%60; return m?`${m}min ${r}s`:
 function isNumEq(a,b,tol=1e-9){ const na=Number(a), nb=Number(b); return Number.isFinite(na)&&Number.isFinite(nb)&&Math.abs(na-nb)<=tol; }
 function normNumLike(s){ return s.toLowerCase().replace(',', '.').replace(/\s/g,'').replace(/€/g,'').replace(/%/g,''); }
 
+/* ---------- State ---------- */
 let current=0, questions=[], answers=[], timer=null, elapsed=0, startedAt=0, times=[], examTimer=null, examLeft=540, hasAnswered=false;
 
+/* ---------- Generator ---------- */
 class Gen {
   rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a}
   rndf(a,b,d=2){const x=Math.random()*(b-a)+a;const k=10**d;return Math.round(x*k)/k}
 
   types(){
     return [
-      'mult_basic','factor_completion','half_integer','share_quotient_remainder','add_two_integers','days_to_hours','sum_euros','mental_3x25','proportion_weight','temp_increase','compare_simple_fractions','subtraction_thousands','times_tens','three_quarters_kg','time_sequence_plus2','twice_more_than','between_3_9_and_4','perimeter_square_dm','nearest_estimation','bound_fraction_consecutive','unit_price_consistent','two_representations_0_25','times_ten','percent_of_amount','deciliter_to_liter','product_cartesian'
+      'mult_basic','factor_completion','half_integer','share_quotient_remainder','add_two_integers',
+      'days_to_hours','sum_euros','mental_3x25','proportion_weight','temp_increase',
+      'compare_simple_fractions','subtraction_thousands','times_tens','three_quarters_kg',
+      'time_sequence_plus2','twice_more_than','between_3_9_and_4','perimeterSquareDm',
+      'nearest_estimation','bound_fraction_consecutive','unit_price_consistent',
+      'two_representations_0_25','times_ten','percent_of_amount','deciliter_to_liter',
+      'product_cartesian'
     ]
   }
 
@@ -142,7 +150,7 @@ class Gen {
       case 'time_sequence_plus2': return this.time_seq_plus2();
       case 'twice_more_than': return this.twice_more();
       case 'between_3_9_and_4': return this.between_3_9_and_4();
-      case 'perimeter_square_dm': return this.perimeter_square_dm();
+      case 'perimeterSquareDm': return this.perimeterSquareDm();
       case 'nearest_estimation': return this.nearest_estimation();
       case 'bound_fraction_consecutive': return this.bound_fraction();
       case 'unit_price_consistent': return this.unit_price();
@@ -154,140 +162,8 @@ class Gen {
     }
   }
 
-  mult_basic(){
-    const a=this.rnd(3,9), b=this.rnd(3,9), r=a*b;
-    return {question:`Calcule ${a} × ${b}`, answer:r.toString(), type:'numerical', explanationSteps:[`${a} \\times ${b} = ${r}`]};
-  }
-
-  // multi: deux facteurs
-  factor_completion(){
-    const n=this.rnd(12,30);
-    const divs=[];for(let d=2;d<n;d++){if(n%d===0)divs.push(d)}
-    const d=divs.length? divs[this.rnd(0,divs.length-1)]:1; const q=n/d;
-    return {question:`Complète : ${n} = … × …`, type:'multi', fields:[{label:'Facteur 1',kind:'number'},{label:'Facteur 2',kind:'number'}], answers:[d.toString(),q.toString()], allowAnyOrder:true, explanationSteps:[`${n} = ${d} \\times ${q}`]};
-  }
-
-  half_integer(){
-    const n=this.rnd(10,60);
-    return {question:`La moitié de ${n}`, answer:(n/2).toString(), type:'numerical', explanationSteps:[`\\dfrac{${n}}{2} = ${n/2}`]};
-  }
-
-  // multi: quotient + reste
-  share_qr(){
-    const people=this.rnd(6,12), coins=this.rnd(30,90);
-    const q=Math.floor(coins/people), r=coins%people;
-    return {question:`${people} pirates se partagent ${coins} pièces. Complète : chacun reçoit … pièces ; il reste … pièces.`, type:'multi', fields:[{label:'Quotient',kind:'number'},{label:'Reste',kind:'number'}], answers:[q.toString(),r.toString()], explanationSteps:[`${coins} = ${people} \\times ${q} + ${r}`]};
-  }
-
-  add_two(){
-    const a=this.rnd(10,60), b=this.rnd(10,60);
-    return {question:`${a} + ${b}`, answer:(a+b).toString(), type:'numerical'};
-  }
-
-  days_to_hours(){
-    const d=this.rnd(1,3);
-    return {question:`Complète : ${d} jour${d>1?'s':''} = … heures`, answer:(d*24).toString(), type:'numerical', explanationSteps:[`${d} \\times 24 = ${d*24}`]};
-  }
-
-  sum_euros(){
-    const a=10*this.rnd(1,9)+this.rnd(0,9);const b=10*this.rnd(1,9)+this.rnd(0,9);
-    return {question:`J'ai reçu ${a} € puis ${b} €. En tout j'ai reçu … €`, answer:(a+b).toString(), type:'numerical'};
-  }
-
-  mental_3x25(){
-    const k=this.rnd(2,9);
-    return {question:`Calcule ${k} × 25`, answer:(k*25).toString(), type:'numerical', explanationSteps:[`${k}\\times25 = ${k}\\times(100/4)= ${(k*100)}/4 = ${k*25}`]};
-  }
-
-  prop_weight(){
-    const a=18, aw=100, b=9, bw=(aw*b)/a; // exact ici = 50
-    return {question:`${a} billes pèsent ${aw} g. ${b} billes pèsent … g`, answer:bw.toString(), type:'numerical',
-      explanationSteps:[
-        `${aw}\\,g\\,\\text{ pour }\\,${a} \\Rightarrow 1\\,\\text{bille} = \\dfrac{${aw}}{${a}} = \\dfrac{50}{9}\\,g`,
-        `${b}\\,\\text{billes} = ${b} \\times \\dfrac{50}{9} = ${bw}\\,g`
-      ]
-    };
-  } 
-
-  temp_increase(){
-    const t0=this.rnd(10,40), t1=this.rnd(120,220);
-    return {question:`Mon four indiquait ${t0}°C. Maintenant il indique ${t1}°C. Il a augmenté de … °C`, answer:(t1-t0).toString(), type:'numerical'};
-  }
-
-  compare_simple_fr(){
-    const opts=[[1,3],[1,4],[1,5]];const labels=['1/3','un quart','1/5'];
-    const i=this.rnd(0,2), j=(i+1)%3;
-    const small=(opts[i][0]/opts[i][1] < opts[j][0]/opts[j][1])? labels[i] : labels[j];
-    return {question:`Entoure le plus petit nombre : ${labels[i]} ; ${labels[j]}`, answer:small, type:'choice', explanationSteps:[`${labels[i]} = ${toFR(opts[i][0]/opts[i][1],2)},\\quad ${labels[j]} = ${toFR(opts[j][0]/opts[j][1],2)}`]};
-  }
-
-  sub_thousands(){
-    const a=1000*this.rnd(2,5), b= this.rnd(500, a-100);
-    return {question:`${a} − ${b}`, answer:(a-b).toString(), type:'numerical'};
-  }
-
-  times_tens(){
-    const a=this.rnd(12,80), m=[10,20,30,40,50][this.rnd(0,4)];
-    return {question:`${a} × ${m}`, answer:(a*m).toString(), type:'numerical', explanationSteps:[`${a}\\times${m} = ${a}\\times(${m/10}\\times10) = ${(a*(m/10))}\\times10 = ${a*m}`]};
-  }
-
-  three_quarters_kg(){
-    return {question:`Les trois quarts de 1 kg = … g`, answer:'750', type:'numerical', explanationSteps:[`\\dfrac{3}{4}\\times 1000 = 750\\,g`]};
-  }
-
-  time_seq_plus2(){
-    const h=this.rnd(1,4), m=this.rnd(0,55);
-    const m1=(m+2)%60;const h1=h+Math.floor((m+2)/60);
-    const m2=(m+4)%60;const h2=h+Math.floor((m+4)/60);
-    const nextH=h+Math.floor((m+6)/60), nextM=(m+6)%60;
-    const fmt=(H,M)=>`${H}h${String(M).padStart(2,'0')}min`;
-    return {question:`Complète la suite logique : ${fmt(h,m)} ; ${fmt(h1,m1)} ; ${fmt(h2,m2)} ; …`, answer:fmt(nextH,nextM), type:'time_format', explanationSteps:[`On ajoute 2 minutes à chaque fois.`]};
-  }
-
-  twice_more(){
-    const theo=[16,18,20,22][this.rnd(0,3)];
-    return {question:`Théo pèse ${theo} kg. Il pèse 2 fois plus que sa sœur Lise. Lise pèse … kg`, answer:(theo/2).toString(), type:'numerical'};
-  }
-
-  // multi: encadrement
-  bound_fraction(){
-    const num=this.rnd(5,11), den=this.rnd(3,9);const v=num/den;const lo=Math.floor(v), hi=lo+1;
-    return {question:`Encadre ${num}/${den} par deux entiers consécutifs : … < ${num}/${den} < …`, type:'multi', fields:[{label:'Entier inférieur',kind:'number'},{label:'Entier supérieur',kind:'number'}], answers:[lo.toString(),hi.toString()], explanationSteps:[`${num}/${den}=${toFR(v,2)}\\Rightarrow ${lo}<${num}/${den}<${hi}`]};
-  }
-
-  unit_price(){
-    const price= [1,1.2,1.5,2][this.rnd(0,3)];const a=9, b=4, pa=(a*price).toFixed(2), pb=(b*price).toFixed(2), t=7, ans=(t*price).toFixed(2);
-    return {question:`Toutes les balles sont au même prix. ${a} balles coûtent ${pa} € et ${b} balles coûtent ${pb} €. ${t} balles coûtent … €`, answer:ans, type:'money', explanationSteps:[`Prix unitaire = ${pa} / ${a} = ${price.toFixed(2)} € = ${pb} / ${b}`,`${t}\\times ${price.toFixed(2)} = ${ans} €`]};
-  }
-
-  // multi: deux écritures
-  repr_0_25(){
-    return {question:`Donne deux autres écritures de 0,25`, type:'multi', fields:[{label:'Écriture 1',kind:'text'},{label:'Écriture 2',kind:'text'}], answers:['1/4','25%'], allowAnyOrder:true, normalizeText:true, explanationSteps:[`0,25 = \\dfrac{1}{4} = 25\\%`]};
-  }
-
-  times_ten(){
-    const n=this.rnd(2,9);
-    return {question:`Quel est le nombre 10 fois plus grand que ${n} ?`, answer:(n*10).toString(), type:'numerical'};
-  }
-
-  percent_of_amount(){
-    const p=[10,20,25,50][this.rnd(0,3)], amt= [24,32,44,80,120][this.rnd(0,4)];
-    const value=(p*amt)/100; const answerStr=value.toFixed(2);
-    return {question:`Calcule ${p}% de ${amt} €`, answer:answerStr, type:'numerical', unit:'€', explanationSteps:[`\\text{${p}% de } ${amt} = \\dfrac{${p}}{100} \\times ${amt}`,`= ${p}/100 \\times ${amt} = ${answerStr.replace('.',',')}\\,€`]};
-  }
-
-  dl_to_l(){
-    const v=[5,10,15,20,30][this.rnd(0,4)];
-    return {question:`Complète : ${v} dL = … L`, answer:(v/10).toString(), type:'numerical'};
-  }
-
-  prod_cartesian(){
-    const c=this.rnd(3,6), t=this.rnd(2,4);
-    return {question:`Une usine fabrique des cahiers : ${c} couleurs et ${t} tailles possibles. Combien de cahiers différents ?`, answer:(c*t).toString(), type:'numerical', explanationSteps:[`${c}\\times${t} = ${c*t}`]};
-  }
-
-  // 🔹 AJOUT : périmètre d’un carré (en dm)
-  perimeter_square_dm(){
+  /* --- Nouveauté : périmètre carré en dm --- */
+  perimeterSquareDm(){
     const side = this.rnd(2, 15); // côté en dm
     const perim = 4 * side;
     return {
@@ -300,19 +176,187 @@ class Gen {
     };
   }
 
-  // (facultatif) placeholder si tu gardes 'nearest_estimation' dans types()
+  mult_basic(){
+    const a=this.rnd(3,9), b=this.rnd(3,9), r=a*b;
+    return {question:`Calcule ${a} × ${b}`, answer:r.toString(), type:'numerical', explanationSteps:[`${a} \\times ${b} = ${r}`]};
+  }
+
+  factor_completion(){
+    const n=this.rnd(12,30);
+    const divs=[];for(let d=2;d<n;d++){if(n%d===0)divs.push(d)}
+    const d=divs.length? divs[this.rnd(0,divs.length-1)]:1; const q=n/d;
+    return {question:`Complète : ${n} = … × …`, type:'multi',
+      fields:[{label:'Facteur 1',kind:'number'},{label:'Facteur 2',kind:'number'}],
+      answers:[d.toString(),q.toString()], allowAnyOrder:true,
+      explanationSteps:[`${n} = ${d} \\times ${q}`]
+    };
+  }
+
+  half_integer(){
+    const n=this.rnd(10,60);
+    return {question:`La moitié de ${n}`, answer:(n/2).toString(), type:'numerical',
+      explanationSteps:[`\\dfrac{${n}}{2} = ${n/2}`]};
+  }
+
+  share_qr(){
+    const people=this.rnd(6,12), coins=this.rnd(30,90);
+    const q=Math.floor(coins/people), r=coins%people;
+    return {question:`${people} pirates se partagent ${coins} pièces. Complète : chacun reçoit … pièces ; il reste … pièces.`,
+      type:'multi',
+      fields:[{label:'Quotient',kind:'number'},{label:'Reste',kind:'number'}],
+      answers:[q.toString(),r.toString()],
+      explanationSteps:[`${coins} = ${people} \\times ${q} + ${r}`]
+    };
+  }
+
+  add_two(){
+    const a=this.rnd(10,60), b=this.rnd(10,60);
+    return {question:`${a} + ${b}`, answer:(a+b).toString(), type:'numerical'};
+  }
+
+  days_to_hours(){
+    const d=this.rnd(1,3);
+    return {question:`Complète : ${d} jour${d>1?'s':''} = … heures`, answer:(d*24).toString(), type:'numerical',
+      explanationSteps:[`${d} \\times 24 = ${d*24}`]};
+  }
+
+  sum_euros(){
+    const a=10*this.rnd(1,9)+this.rnd(0,9);
+    const b=10*this.rnd(1,9)+this.rnd(0,9);
+    return {question:`J'ai reçu ${a} € puis ${b} €. En tout j'ai reçu … €`, answer:(a+b).toString(), type:'numerical'};
+  }
+
+  mental_3x25(){
+    const k=this.rnd(2,9);
+    return {question:`Calcule ${k} × 25`, answer:(k*25).toString(), type:'numerical',
+      explanationSteps:[`${k}\\times25 = ${k}\\times(100/4)= ${(k*100)}/4 = ${k*25}`]};
+  }
+
+  prop_weight(){
+    const a=18, aw=100, b=9, bw=(aw*b)/a; // 50 g pour 9 billes
+    return {question:`${a} billes pèsent ${aw} g. ${b} billes pèsent … g`,
+      answer:bw.toString(), type:'numerical',
+      explanationSteps:[
+        `${aw}\\,g\\,\\text{ pour } ${a} \\Rightarrow 1 \\text{ bille } = \\dfrac{${aw}}{${a}} = \\dfrac{50}{9}\\,g`,
+        `${b} \\text{ billes } = ${b} \\times \\dfrac{50}{9} = ${bw}\\,g`
+      ]
+    };
+  }
+
+  temp_increase(){
+    const t0=this.rnd(10,40), t1=this.rnd(120,220);
+    return {question:`Mon four indiquait ${t0}°C. Maintenant il indique ${t1}°C. Il a augmenté de … °C`,
+      answer:(t1-t0).toString(), type:'numerical'};
+  }
+
+  compare_simple_fr(){
+    const opts=[[1,3],[1,4],[1,5]];const labels=['1/3','un quart','1/5'];
+    const i=this.rnd(0,2), j=(i+1)%3;
+    const small=(opts[i][0]/opts[i][1] < opts[j][0]/opts[j][1])? labels[i] : labels[j];
+    return {question:`Entoure le plus petit nombre : ${labels[i]} ; ${labels[j]}`, answer:small, type:'choice',
+      explanationSteps:[`${labels[i]} = ${toFR(opts[i][0]/opts[i][1],2)},\\quad ${labels[j]} = ${toFR(opts[j][0]/opts[j][1],2)}`]};
+  }
+
+  sub_thousands(){
+    const a=1000*this.rnd(2,5), b= this.rnd(500, a-100);
+    return {question:`${a} − ${b}`, answer:(a-b).toString(), type:'numerical'};
+  }
+
+  times_tens(){
+    const a=this.rnd(12,80), m=[10,20,30,40,50][this.rnd(0,4)];
+    return {question:`${a} × ${m}`, answer:(a*m).toString(), type:'numerical',
+      explanationSteps:[`${a}\\times${m} = ${a}\\times(${m/10}\\times10) = ${(a*(m/10))}\\times10 = ${a*m}`]};
+  }
+
+  three_quarters_kg(){
+    return {question:`Les trois quarts de 1 kg = … g`, answer:'750', type:'numerical',
+      explanationSteps:[`\\dfrac{3}{4}\\times 1000 = 750\\,g`]};
+  }
+
+  time_seq_plus2(){
+    const h=this.rnd(1,4), m=this.rnd(0,55);
+    const m1=(m+2)%60;const h1=h+Math.floor((m+2)/60);
+    const m2=(m+4)%60;const h2=h+Math.floor((m+4)/60);
+    const nextH=h+Math.floor((m+6)/60), nextM=(m+6)%60;
+    const fmt=(H,M)=>`${H}h${String(M).padStart(2,'0')}min`;
+    return {question:`Complète la suite logique : ${fmt(h,m)} ; ${fmt(h1,m1)} ; ${fmt(h2,m2)} ; …`,
+      answer:fmt(nextH,nextM), type:'time_format',
+      explanationSteps:[`On ajoute 2 minutes à chaque fois.`]};
+  }
+
+  twice_more(){
+    const theo=[16,18,20,22][this.rnd(0,3)];
+    return {question:`Théo pèse ${theo} kg. Il pèse 2 fois plus que sa sœur Lise. Lise pèse … kg`,
+      answer:(theo/2).toString(), type:'numerical'};
+  }
+
+  bound_fraction(){
+    const num=this.rnd(5,11), den=this.rnd(3,9);
+    const v=num/den;const lo=Math.floor(v), hi=lo+1;
+    return {question:`Encadre ${num}/${den} par deux entiers consécutifs : … < ${num}/${den} < …`,
+      type:'multi',
+      fields:[{label:'Entier inférieur',kind:'number'},{label:'Entier supérieur',kind:'number'}],
+      answers:[lo.toString(),hi.toString()],
+      explanationSteps:[`${num}/${den}=${toFR(v,2)}\\Rightarrow ${lo}<${num}/${den}<${hi}`]};
+  }
+
+  unit_price(){
+    const price=[1,1.2,1.5,2][this.rnd(0,3)];
+    const a=9, b=4, pa=(a*price).toFixed(2), pb=(b*price).toFixed(2), t=7, ans=(t*price).toFixed(2);
+    return {question:`Toutes les balles sont au même prix. ${a} balles coûtent ${pa} € et ${b} balles coûtent ${pb} €. ${t} balles coûtent … €`,
+      answer:ans, type:'money',
+      explanationSteps:[`Prix unitaire = ${pa} / ${a} = ${price.toFixed(2)} € = ${pb} / ${b}`,`${t}\\times ${price.toFixed(2)} = ${ans} €`]};
+  }
+
+  repr_0_25(){
+    return {question:`Donne deux autres écritures de 0,25`, type:'multi',
+      fields:[{label:'Écriture 1',kind:'text'},{label:'Écriture 2',kind:'text'}],
+      answers:['1/4','25%'], allowAnyOrder:true, normalizeText:true,
+      explanationSteps:[`0,25 = \\dfrac{1}{4} = 25\\%`]};
+  }
+
+  times_ten(){
+    const n=this.rnd(2,9);
+    return {question:`Quel est le nombre 10 fois plus grand que ${n} ?`,
+      answer:(n*10).toString(), type:'numerical'};
+  }
+
+  percent_of_amount(){
+    const p=[10,20,25,50][this.rnd(0,3)], amt=[24,32,44,80,120][this.rnd(0,4)];
+    const value=(p*amt)/100; const answerStr=value.toFixed(2);
+    return {question:`Calcule ${p}% de ${amt} €`,
+      answer:answerStr, type:'numerical', unit:'€',
+      explanationSteps:[`\\text{${p}% de } ${amt} = \\dfrac{${p}}{100} \\times ${amt}`,`= ${p}/100 \\times ${amt} = ${answerStr.replace('.',',')}\\,€`]};
+  }
+
+  dl_to_l(){
+    const v=[5,10,15,20,30][this.rnd(0,4)];
+    return {question:`Complète : ${v} dL = … L`, answer:(v/10).toString(), type:'numerical'};
+  }
+
+  prod_cartesian(){
+    const c=this.rnd(3,6), t=this.rnd(2,4);
+    return {question:`Une usine fabrique des cahiers : ${c} couleurs et ${t} tailles possibles. Combien de cahiers différents ?`,
+      answer:(c*t).toString(), type:'numerical',
+      explanationSteps:[`${c}\\times${t} = ${c*t}`]};
+  }
+
   nearest_estimation(){
     const n=this.rnd(120,980);
     const tens=Math.round(n/10)*10;
-    return {question:`Donne une estimation au plus proche à la dizaine : ${n} ≈ …`, answer:tens.toString(), type:'numerical', explanationSteps:[`\\text{Arrondi à la dizaine la plus proche}: ${n} \\approx ${tens}`]};
+    return {question:`Donne une estimation au plus proche à la dizaine : ${n} ≈ …`,
+      answer:tens.toString(), type:'numerical',
+      explanationSteps:[`\\text{Arrondi à la dizaine la plus proche}: ${n} \\approx ${tens}`]};
   }
 
   between_3_9_and_4(){
     const x=this.rndf(3.9,4,2);
-    return {question:`Donne un nombre entre 3,9 et 4`, answer:x.toString(), type:'numerical', explanationSteps:[`Exemple de réponse correcte : ${x}`]};
+    return {question:`Donne un nombre entre 3,9 et 4`, answer:x.toString(), type:'numerical',
+      explanationSteps:[`Exemple de réponse correcte : ${x}`]};
   }
 }
 
+/* ---------- Quiz flow ---------- */
 function startQuiz(){
   whenKatexReady(() => {
     if (typeof renderMathInElement === 'function') {
@@ -336,24 +380,56 @@ function startQuiz(){
   });
 }
 
-function startExamTimer(){clearInterval(examTimer);examTimer=setInterval(()=>{examLeft--;updateExamTimer();if(examLeft<=0){clearInterval(examTimer);autoFinish()}},1000)}
-function updateExamTimer(){const el=document.getElementById('timer');if(!el)return;const m=Math.floor(examLeft/60),s=String(examLeft%60).padStart(2,'0');el.textContent=`⏱️ ${m}:${s}`;if(examLeft<60){el.style.color='#dc3545';el.style.fontWeight='bold'}}
-function autoFinish(){for(let i=current;i<questions.length;i++){const q=questions[i];const ca=(q.type==='multi')?(q.answers||[]).join(' | '):q.answer;answers.push({question:q.question,userAnswer:'',correctAnswer:ca,isCorrect:false,timeSpent:0,explanationSteps:q.explanationSteps,unit:q.unit})}showResults()}
+function startExamTimer(){
+  clearInterval(examTimer);
+  examTimer=setInterval(()=>{
+    examLeft--;
+    updateExamTimer();
+    if(examLeft<=0){clearInterval(examTimer);autoFinish()}
+  },1000)
+}
+function updateExamTimer(){
+  const el=document.getElementById('timer');if(!el)return;
+  const m=Math.floor(examLeft/60), s=String(examLeft%60).padStart(2,'0');
+  el.textContent=`⏱️ ${m}:${s}`;
+  if(examLeft<60){el.style.color='#dc3545';el.style.fontWeight='bold'}
+}
+function autoFinish(){
+  for(let i=current;i<questions.length;i++){
+    const q=questions[i];
+    const ca=(q.type==='multi')?(q.answers||[]).join(' | '):q.answer;
+    answers.push({question:q.question,userAnswer:'',correctAnswer:ca,isCorrect:false,timeSpent:0,explanationSteps:q.explanationSteps,unit:q.unit})
+  }
+  showResults()
+}
 
 function showQuestion(){
   if(current>=questions.length){clearInterval(examTimer);showResults();return}
   hasAnswered=false;startedAt=Date.now();
-  const q=questions[current];const mode=document.getElementById('mode').value;const box=document.getElementById('quizContainer');
-  let html=`<div class="question-header"><div class="question-number">Question ${current+1} / ${questions.length}</div><div class="timer" id="timer">⏱️ ${mode==='exam'?`${Math.floor(examLeft/60)}:${String(examLeft%60).padStart(2,'0')}`:'0s'}</div></div>`
+  const q=questions[current];
+  const mode=document.getElementById('mode').value;
+  const box=document.getElementById('quizContainer');
+
+  let html=`<div class="question-header">
+    <div class="question-number">Question ${current+1} / ${questions.length}</div>
+    <div class="timer" id="timer">⏱️ ${mode==='exam'?`${Math.floor(examLeft/60)}:${String(examLeft%60).padStart(2,'0')}`:'0s'}</div>
+  </div>`
+
   if(mode==='exam') html+=`<div class="mode-info">⚠️ Mode Examen : 9 minutes – pas d'explications affichées</div>`
-  html+=`<div class="question-content"><div class="question-text">${q.question}</div>`
+
+  html+=`<div class="question-content">
+    <div class="question-text">${q.question}</div>`
+
   if(q.mathDisplay) html+=`<div class="math-display">${renderMathBlock(q.mathDisplay)}</div>`
 
   if(q.type==='multi'){
     html+=`<div class="multi-inputs">`;
     q.fields.forEach((f,i)=>{
       const placeholder=f.kind==='number'? 'Nombre' : 'Texte';
-      html+=`<div style="margin:6px 0"><label style="display:block;font-weight:600;margin-bottom:6px">${f.label}</label><input type="text" class="answer-input" id="answerInput-${i}" placeholder="${placeholder}"></div>`
+      html+=`<div style="margin:6px 0">
+        <label style="display:block;font-weight:600;margin-bottom:6px">${f.label}</label>
+        <input type="text" class="answer-input" id="answerInput-${i}" placeholder="${placeholder}">
+      </div>`
     });
     html+=`</div>`;
   } else {
@@ -362,17 +438,36 @@ function showQuestion(){
     if(q.type==='time_format') placeholder='Format: 16h30min';
     html+=`<input type="text" class="answer-input" id="answerInput" placeholder="${placeholder}" onkeypress="if(event.key==='Enter') validateAnswer()">`;
   }
-  html+=`</div>`
-  html+=`<div class="question-actions" id="questionActions"><button class="btn-validate" onclick="validateAnswer()">✓ Valider</button><button class="btn-skip" onclick="skipQuestion()">→ Passer</button></div><div id="feedback"></div>`
+
+  html+=`</div>
+  <div class="question-actions" id="questionActions">
+    <button class="btn-validate" onclick="validateAnswer()">✓ Valider</button>
+    <button class="btn-skip" onclick="skipQuestion()">→ Passer</button>
+  </div>
+  <div id="feedback"></div>`
+
   box.innerHTML=html
   const first=document.querySelector('.answer-input'); if(first) first.focus();
   if(mode==='training') startTimer(); else updateExamTimer()
 }
 
-function startTimer(){clearInterval(timer);elapsed=0;timer=setInterval(()=>{elapsed++;const el=document.getElementById('timer');if(el&&!hasAnswered)el.textContent=`⏱️ ${elapsed}s`},1000)}
+function startTimer(){
+  clearInterval(timer);elapsed=0;
+  timer=setInterval(()=>{
+    elapsed++;
+    const el=document.getElementById('timer');
+    if(el&&!hasAnswered)el.textContent=`⏱️ ${elapsed}s`
+  },1000)
+}
 
-function validateAnswer(){if(hasAnswered)return;const mode=document.getElementById('mode').value;if(mode==='training')clearInterval(timer);hasAnswered=true
-  const t=Math.round((Date.now()-startedAt)/1000);times.push(t)
+function validateAnswer(){
+  if(hasAnswered)return;
+  const mode=document.getElementById('mode').value;
+  if(mode==='training')clearInterval(timer);
+  hasAnswered=true;
+
+  const t=Math.round((Date.now()-startedAt)/1000);
+  times.push(t);
   const q=questions[current];
   let ok=false; let shownAnswer=""; let userShown="";
 
@@ -399,7 +494,8 @@ function validateAnswer(){if(hasAnswered)return;const mode=document.getElementBy
   } else {
     const input=document.getElementById('answerInput').value.trim();
     userShown=input;
-    let ua=normNumLike(input), ca=normNumLike(q.answer)
+    let ua=normNumLike(input), ca=normNumLike(q.answer);
+
     if(q.type==='time_format'){
       const fix=s=>s.replace(/(\d+)h(\d)(?!\d)/,(m,H,mn)=>`${H}h0${mn}`).replace(/^(\d+)h$/,'$1h00');
       ua=fix(ua); ca=fix(ca);
@@ -409,7 +505,7 @@ function validateAnswer(){if(hasAnswered)return;const mode=document.getElementBy
     } else {
       ok = ua === ca;
     }
-    shownAnswer=q.answer
+    shownAnswer=q.answer;
   }
 
   answers.push({question:q.question,userAnswer:userShown,correctAnswer:shownAnswer,isCorrect:ok,timeSpent:t,explanationSteps:q.explanationSteps,unit:q.unit})
@@ -417,17 +513,25 @@ function validateAnswer(){if(hasAnswered)return;const mode=document.getElementBy
   const fb=document.getElementById('feedback');fb.className='feedback '+(ok?'correct':'incorrect');
   const showAnsDisplay=(q.unit==='€'&&typeof shownAnswer==='string')? shownAnswer.replace('.',',') : shownAnswer;
   let html = ok? `✓ Correct ! (${t}s)` : `✗ Incorrect. Réponse : ${showAnsDisplay}${q.unit? ' '+q.unit:''} (${t}s)`
-  if(mode==='training' && q.explanationSteps){html+=`<div class="explanation-box ${ok?'correct':'incorrect'}"><strong>📝 Explication :</strong>${stepsHTML(q.explanationSteps)}</div>`}
+  if(mode==='training' && q.explanationSteps){
+    html+=`<div class="explanation-box ${ok?'correct':'incorrect'}"><strong>📝 Explication :</strong>${stepsHTML(q.explanationSteps)}</div>`
+  }
   fb.innerHTML=html
   document.getElementById('questionActions').innerHTML='<button class="btn-next" onclick="nextQuestion()">Suivant →</button>'
   const inputs=document.querySelectorAll('.answer-input'); inputs.forEach(i=>i.disabled=true)
 }
 
-function skipQuestion(){if(hasAnswered)return;const mode=document.getElementById('mode').value;if(mode==='training')clearInterval(timer);hasAnswered=true
+function skipQuestion(){
+  if(hasAnswered)return;
+  const mode=document.getElementById('mode').value;
+  if(mode==='training')clearInterval(timer);
+  hasAnswered=true;
+
   const t=Math.round((Date.now()-startedAt)/1000);times.push(t)
   const q=questions[current]
   const shownAnswer=(q.type==='multi')? (q.answers||[]).join(' | ') : q.answer;
   answers.push({question:q.question,userAnswer:'',correctAnswer:shownAnswer,isCorrect:false,timeSpent:t,explanationSteps:q.explanationSteps,unit:q.unit})
+
   if(mode==='training'){
     const fb=document.getElementById('feedback');fb.className='feedback incorrect';
     const showAnsDisplay=(q.unit==='€'&&typeof shownAnswer==='string')? shownAnswer.replace('.',',') : shownAnswer;
@@ -436,32 +540,74 @@ function skipQuestion(){if(hasAnswered)return;const mode=document.getElementById
     fb.innerHTML=html
     document.getElementById('questionActions').innerHTML='<button class="btn-next" onclick="nextQuestion()">Suivant →</button>'
     const inputs=document.querySelectorAll('.answer-input'); inputs.forEach(i=>i.disabled=true)
-  } else { nextQuestion() }
+  } else {
+    nextQuestion()
+  }
 }
 
 function nextQuestion(){current++;showQuestion()}
 
-function showResults(){clearInterval(timer);clearInterval(examTimer)
+function showResults(){
+  clearInterval(timer);clearInterval(examTimer)
   const good=answers.filter(a=>a.isCorrect).length;const pct=Math.round(100*good/questions.length)
   const total=times.reduce((a,b)=>a+b,0);const avg=questions.length? Math.round(total/questions.length):0
   const mode=document.getElementById('mode').value;const box=document.getElementById('quizContainer')
-  let review='';answers.forEach((a,i)=>{review+=`<div class="question-review ${a.isCorrect?'correct':'incorrect'}"><strong>Q${i+1}:</strong> ${a.question}<br><strong>Votre réponse:</strong> ${a.userAnswer||'—'}<br><strong>Réponse correcte:</strong> ${a.correctAnswer}${a.unit?' '+a.unit:''}<br>${mode==='training'?`<div class="time-info">⏱️ ${a.timeSpent}s</div>`:''}${a.explanationSteps?`<div class="review-explanation"><strong>📝 Explication :</strong>${stepsHTML(a.explanationSteps)}</div>`:''}</div>`})
+
+  let review='';
+  answers.forEach((a,i)=>{
+    review+=`<div class="question-review ${a.isCorrect?'correct':'incorrect'}">
+      <strong>Q${i+1}:</strong> ${a.question}<br>
+      <strong>Votre réponse:</strong> ${a.userAnswer||'—'}<br>
+      <strong>Réponse correcte:</strong> ${a.correctAnswer}${a.unit?' '+a.unit:''}
+      ${mode==='training'?`<div class="time-info">⏱️ ${a.timeSpent}s</div>`:''}
+      ${a.explanationSteps?`<div class="review-explanation"><strong>📝 Explication :</strong>${stepsHTML(a.explanationSteps)}</div>`:''}
+    </div>`
+  })
+
   let stats='';
   if(mode==='training'){
-    stats=`<div style="background:#e3f2fd;padding:15px;border-radius:10px;margin:20px 0"><h3 style="color:#1976d2;margin-bottom:10px">📊 Statistiques de temps</h3><p style="font-size:1.05em;color:#333">Temps total : ${fmtTime(total)}<br>Temps moyen : ${avg}s<br>${times.length?`Plus rapide : ${Math.min(...times)}s<br>`:''}${times.length?`Plus long : ${Math.max(...times)}s`:''}</p></div>`
+    stats=`<div style="background:#e3f2fd;padding:15px;border-radius:10px;margin:20px 0">
+      <h3 style="color:#1976d2;margin-bottom:10px">📊 Statistiques de temps</h3>
+      <p style="font-size:1.05em;color:#333">
+        Temps total : ${fmtTime(total)}<br>
+        Temps moyen : ${avg}s<br>
+        ${times.length?`Plus rapide : ${Math.min(...times)}s<br>`:''}
+        ${times.length?`Plus long : ${Math.max(...times)}s`:''}
+      </p>
+    </div>`
   } else {
-    const used=540-examLeft;stats=`<div style="background:#fff3cd;padding:15px;border-radius:10px;margin:20px 0"><h3 style="color:#856404;margin-bottom:10px">⏱️ Mode Examen</h3><p style="font-size:1.05em;color:#333">Temps utilisé : ${fmtTime(used)} / 9 min</p></div>`
+    const used=540-examLeft;
+    stats=`<div style="background:#fff3cd;padding:15px;border-radius:10px;margin:20px 0">
+      <h3 style="color:#856404;margin-bottom:10px">⏱️ Mode Examen</h3>
+      <p style="font-size:1.05em;color:#333">Temps utilisé : ${fmtTime(used)} / 9 min</p>
+    </div>`
   }
-  box.innerHTML=`<div class="results"><h2>🎯 Résultats</h2><div class="score">${good} / ${questions.length}</div><p style="font-size:1.1em;color:#666">Score : ${pct}%</p>${stats}<div class="results-details"><h3>📋 Détail des réponses ${mode==='training'?'(avec explications)':''}</h3>${review}</div><button onclick="location.reload()">🔄 Nouveau test</button></div>`
+
+  box.innerHTML=`<div class="results">
+    <h2>🎯 Résultats</h2>
+    <div class="score">${good} / ${questions.length}</div>
+    <p style="font-size:1.1em;color:#666">Score : ${pct}%</p>
+    ${stats}
+    <div class="results-details">
+      <h3>📋 Détail des réponses ${mode==='training'?'(avec explications)':''}</h3>
+      ${review}
+    </div>
+    <button onclick="location.reload()">🔄 Nouveau test</button>
+  </div>`
 }
 
+/* ---------- KaTeX auto-render au chargement ---------- */
 whenKatexReady(function(){
   if (typeof renderMathInElement === 'function') {
     renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});
   }
 });
 
-window.startQuiz=startQuiz;window.validateAnswer=validateAnswer;window.skipQuestion=skipQuestion;window.nextQuestion=nextQuestion;
+/* ---------- Expose ---------- */
+window.startQuiz=startQuiz;
+window.validateAnswer=validateAnswer;
+window.skipQuestion=skipQuestion;
+window.nextQuestion=nextQuestion;
 </script>
 </body>
 </html>

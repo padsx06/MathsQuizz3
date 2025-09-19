@@ -44,6 +44,7 @@
     .explanation-box.incorrect{background:#ffebee;border-color:#f44336}
     .math-steps{margin-top:10px;line-height:2.1}
     .math-step{display:block;margin:6px 0;font-size:1.05em}
+    /* Masque la couche MathML de KaTeX pour éviter les doublons visuels */
     .katex .katex-mathml{position:absolute!important;clip:rect(1px,1px,1px,1px)!important;clip-path:inset(50%)!important;height:1px!important;width:1px!important;overflow:hidden!important;padding:0!important;border:0!important}
     .katex .katex-html{position:relative}
     .results{text-align:center;padding:40px}
@@ -136,7 +137,7 @@ class Gen {
     const labelB = b.toString().replace('.', ',');
     return {
       question: `Donne un nombre entre ${labelA} et ${labelB}`,
-      answer: x.toString(), // exemple
+      answer: x.toString(), // exemple d'affichage
       type: 'numerical',
       acceptAnyInInterval: true,
       interval: { a, b, inclusiveLower, inclusiveUpper },
@@ -441,9 +442,7 @@ class Gen {
   }
 
   // utilise la version générique (intervalle)
-  between_3_9_and_4(){
-    return this.makeBetween({a:3.9, b:4, decimals:2});
-  }
+  between_3_9_and_4(){ return this.makeBetween({a:3.9, b:4, decimals:2}); }
 
   /* ======== VARIANTES SUPPLÉMENTAIRES ======== */
   repr_0_5(){  return this.makeReprDecimal({valueDec:0.5,  fracNum:1, fracDen:2, percent:50}); }
@@ -624,7 +623,7 @@ function validateAnswer(){
     userShown=input;
     let ua=normNumLike(input), ca=normNumLike(q.answer);
 
-    /* ✅ Contrôle "appartenance à un intervalle" si présent */
+    /* ✅ Contrôle "appartenance à un intervalle" AVANT toute égalité */
     if (q.acceptAnyInInterval && q.interval) {
       const v = Number(ua);
       if (Number.isFinite(v)) {

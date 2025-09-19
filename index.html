@@ -99,7 +99,6 @@ function whenKatexReady(cb){
     if (window.katex && typeof window.katex.render === 'function') cb();
   });
 }
-
 function toFR(n, d = null){ if(typeof n === 'number') n = d!==null ? n.toFixed(d) : n.toString(); return n.replace('.', ','); }
 function renderMath(x){ const span=document.createElement('span'); katex.render(x, span, {throwOnError:false}); return span.outerHTML; }
 function renderMathBlock(x){ const div=document.createElement('div'); katex.render(x, div, {throwOnError:false, displayMode:true}); return div.outerHTML; }
@@ -130,15 +129,18 @@ class Gen {
     };
   }
 
-  makeBetween({a, b, decimals=2}){
-    const x = this.rndf(a, b, decimals);
+  // Intervalle : accepte toute valeur dans ]a,b[ (ou bornes inclusives si demandé)
+  makeBetween({a, b, decimals=2, inclusiveLower=false, inclusiveUpper=false}){
+    const x = this.rndf(a, b, decimals); // juste pour l'exemple affiché
     const labelA = a.toString().replace('.', ',');
     const labelB = b.toString().replace('.', ',');
     return {
       question: `Donne un nombre entre ${labelA} et ${labelB}`,
-      answer: x.toString(),
+      answer: x.toString(), // exemple
       type: 'numerical',
-      explanationSteps: [`Exemple de réponse correcte : ${x.toString().replace('.', ',')}`]
+      acceptAnyInInterval: true,
+      interval: { a, b, inclusiveLower, inclusiveUpper },
+      explanationSteps: [`\\text{Exemple de réponse correcte : } ${x.toString().replace('.', ',')}`]
     };
   }
 
@@ -281,7 +283,7 @@ class Gen {
       fields:[{label:'Facteur 1',kind:'number'},{label:'Facteur 2',kind:'number'}],
       answers:[d.toString(),q.toString()],
       allowAnyOrder:true,
-      // ✅ nouvelles propriétés : accepter toute paire dont le produit vaut n
+      // ✅ accepte toute paire dont le produit vaut n
       acceptAnyFactorPair:true,
       targetProduct:n,
       explanationSteps:[`${n} = ${d} \\times ${q}`]
@@ -329,7 +331,7 @@ class Gen {
   }
 
   prop_weight(){
-    const a=18, aw=100, b=9, bw=(aw*b)/a; // 50 g pour 9 billes
+    const a=18, aw=100, b=9, bw=(aw*b)/a;
     return {question:`${a} billes pèsent ${aw} g. ${b} billes pèsent … g`,
       answer:bw.toString(), type:'numerical',
       explanationSteps:[
@@ -438,6 +440,7 @@ class Gen {
       explanationSteps:[`\\text{Arrondi à la dizaine la plus proche}: ${n} \\approx ${tens}`]};
   }
 
+  // utilise la version générique (intervalle)
   between_3_9_and_4(){
     return this.makeBetween({a:3.9, b:4, decimals:2});
   }
@@ -456,12 +459,12 @@ class Gen {
   l_to_cl(){ return this.makeConversion({values:[1,1.5,2], unitFrom:'L', unitTo:'cL', num:100, den:1, decimals:2}); }
   m_to_cm(){ return this.makeConversion({values:[2,3.5,7], unitFrom:'m', unitTo:'cm', num:100, den:1, decimals:2}); }
 
-  one_fifth_kg(){   return this.makeFractionOfKg({num:1, den:5}); }   // 200 g
-  one_eighth_kg(){  return this.makeFractionOfKg({num:1, den:8}); }   // 125 g
+  one_fifth_kg(){   return this.makeFractionOfKg({num:1, den:5}); }
+  one_eighth_kg(){  return this.makeFractionOfKg({num:1, den:8}); }
 
-  prop_weight_125(){ return this.makePropWeight({unitWeight:12.5, A:8,  B:6}); } // 100 g → 75 g
-  prop_weight_2_5(){ return this.makePropWeight({unitWeight:2.5,  A:12, B:7}); } // 30 g → 17,5 g
-  prop_weight_5(){   return this.makePropWeight({unitWeight:5,    A:9,  B:4}); } // 45 g → 20 g
+  prop_weight_125(){ return this.makePropWeight({unitWeight:12.5, A:8,  B:6}); }
+  prop_weight_2_5(){ return this.makePropWeight({unitWeight:2.5,  A:12, B:7}); }
+  prop_weight_5(){   return this.makePropWeight({unitWeight:5,    A:9,  B:4}); }
 }
 
 /* ---------- Quiz flow ---------- */
@@ -583,21 +586,19 @@ function validateAnswer(){
     const userVals=q.fields.map((_,i)=>{const el=document.getElementById(`answerInput-${i}`);return el?el.value.trim():'';});
     userShown=userVals.join(' | ');
 
-    /* ✅ Contrôle spécial "paire de facteurs" si demandé */
+    /* ✅ Contrôle "paire de facteurs" si présent */
     if (q.acceptAnyFactorPair && typeof q.targetProduct === 'number') {
       const [aStr,bStr] = userVals.map(s=>s.replace(',','.'));
       const a = Number(aStr), b = Number(bStr);
       if (Number.isFinite(a) && Number.isFinite(b)) {
         const okProd = Math.abs(a*b - q.targetProduct) <= 1e-9;
-        // Option : n'accepter que des entiers positifs
+        // Option stricte : entiers positifs
         // const okForme = Number.isInteger(a) && Number.isInteger(b) && a>0 && b>0;
-        if (okProd /* && okForme */) {
-          ok = true;
-        }
+        if (okProd /* && okForme */) ok = true;
       }
     }
 
-    // Si pas déjà validé par la règle "produit", on compare aux réponses proposées
+    // Si pas validé par la règle "produit", on compare aux réponses proposées
     if (!ok) {
       const correct=q.answers.slice();
       const normVal=(s)=> q.normalizeText? s.toLowerCase().replace(/\s/g,'').replace(',', '.') : s.toLowerCase().replace(',', '.').replace(/\s/g,'');
@@ -623,16 +624,34 @@ function validateAnswer(){
     userShown=input;
     let ua=normNumLike(input), ca=normNumLike(q.answer);
 
-    if(q.type==='time_format'){
-      const fix=s=>s.replace(/(\d+)h(\d)(?!\d)/,(m,H,mn)=>`${H}h0${mn}`).replace(/^(\d+)h$/,'$1h00');
-      ua=fix(ua); ca=fix(ca);
-      ok = ua === ca;
-    } else if(q.type==='numerical' || q.type==='money'){
-      ok = isNumEq(ua, ca);
-    } else {
-      ok = ua === ca;
+    /* ✅ Contrôle "appartenance à un intervalle" si présent */
+    if (q.acceptAnyInInterval && q.interval) {
+      const v = Number(ua);
+      if (Number.isFinite(v)) {
+        const { a, b, inclusiveLower=false, inclusiveUpper=false } = q.interval;
+        const tol = 1e-9;
+        const lowerOK = inclusiveLower ? v >= a - tol : v > a + tol;
+        const upperOK = inclusiveUpper ? v <= b + tol : v < b - tol;
+        if (lowerOK && upperOK) {
+          ok = true;
+          shownAnswer = `${toFR(a)} ${inclusiveLower?'≤':'<'} x ${inclusiveUpper?'≤':'<'} ${toFR(b)} (ex : ${toFR(Number(q.answer))})`;
+        }
+      }
     }
-    shownAnswer=q.answer;
+
+    // Si pas validé par "intervalle", retomber sur les comparaisons habituelles
+    if (!ok) {
+      if(q.type==='time_format'){
+        const fix=s=>s.replace(/(\d+)h(\d)(?!\d)/,(m,H,mn)=>`${H}h0${mn}`).replace(/^(\d+)h$/,'$1h00');
+        ua=fix(ua); ca=fix(ca);
+        ok = ua === ca;
+      } else if(q.type==='numerical' || q.type==='money'){
+        ok = isNumEq(ua, ca);
+      } else {
+        ok = ua === ca;
+      }
+      shownAnswer=q.answer;
+    }
   }
 
   answers.push({question:q.question,userAnswer:userShown,correctAnswer:shownAnswer,isCorrect:ok,timeSpent:t,explanationSteps:q.explanationSteps,unit:q.unit})
